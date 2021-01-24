@@ -1,12 +1,12 @@
 package com.contagion.person;
 
-import com.contagion.map.DrawableType;
+import com.contagion.tiles.DrawableType;
 import com.contagion.map.Position;
 
 public class Supplier extends Person{
 
-    public Supplier(String name, String surname, Position position) {
-        super(name, surname, position);
+    public Supplier(String name, String surname, String id, Position position) {
+        super(name, surname, id, position);
     }
 
     @Override

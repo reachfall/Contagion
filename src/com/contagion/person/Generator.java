@@ -3,7 +3,7 @@ package com.contagion.person;
 import java.util.Arrays;
 import java.util.List;
 
-public class DataGenerator {
+public class Generator {
     private List<String> lastNames = Arrays.asList(
             "Nowak",
             "Kowalski",
