@@ -72,12 +72,15 @@ public class Node implements Comparable<Node> {
 
     @Override
     public int hashCode() {
-        return super.hashCode();
+        return position.getX() * 3803 + position.getY() * 6971;
     }
 
     @Override
     public boolean equals(Object obj) {
-        Node o = (Node) obj;
-        return this.getPosition().equals(o.getPosition());
+        if (obj instanceof Node){
+            Node o = (Node) obj;
+            return this.getPosition().equals(o.getPosition());
+        }
+        return false;
     }
 }

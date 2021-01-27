@@ -55,7 +55,7 @@ public class Pathfinder {
 
     public static ArrayList<String> findPath(Position start, Position end, DrawableType type) {
         ArrayList<Node> open = new ArrayList<>();
-        ArrayList<Node> closed = new ArrayList<>();
+        HashSet<Node> closed = new HashSet<>();
         open.add(new Node(start));
         Node current;
 
