@@ -19,7 +19,7 @@ public class Storage {
     private final ArrayList<Shop> allShops = new ArrayList<>();
     private final HashMap<Position, Shop> locationToShop = new HashMap<>();
 
-    public Storage() {
+    private Storage() {
     }
 
     public static Storage getInstance() {

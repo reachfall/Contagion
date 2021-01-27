@@ -10,13 +10,12 @@ public abstract class Shop implements Drawable {
     private String name;
     private ArrayList<Product> supply;
     private Object supplyMonitor = new Object();
-    private int actualCapacity;
+    private int actualCapacity = 3;
 
     public Shop(Position position) {
         this.position = position;
     }
 
-    @Override
     public Position getPosition() {
         return position;
     }

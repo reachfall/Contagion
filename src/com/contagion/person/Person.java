@@ -27,7 +27,7 @@ public abstract class Person implements Runnable, Movable {
         this.id = id;
         this.position = position;
         this.lastPosition = position;
-        this.instructions.addAll(new ArrayList<String>(List.of("wait", "right", "right", "right", "right", "down", "down", "down", "wait", "wait", "right")));
+        this.instructions.addAll(new ArrayList<String>(List.of("wait")));
         ScheduledExecution.getInstance().scheduleAtFixedRate(this::run, 0, 100, TimeUnit.MILLISECONDS);
     }
 

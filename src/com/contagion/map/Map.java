@@ -1,18 +1,13 @@
 package com.contagion.map;
 
-
 import com.contagion.control.Storage;
+import com.contagion.infrastructure.*;
 import com.contagion.person.Client;
-import com.contagion.roads.Intersection;
-import com.contagion.roads.Road;
 import com.contagion.shop.RetailShop;
 import com.contagion.shop.Wholesale;
 import com.contagion.tiles.Drawable;
 import com.contagion.tiles.DrawableType;
 import com.contagion.tiles.Movable;
-import javafx.event.ActionEvent;
-import javafx.event.EventHandler;
-import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
@@ -50,6 +45,12 @@ public class Map extends AnchorPane {
     Object locationToDrawableMonitor = new Object();
     private HashMap<Position, Drawable> locationToStationaryDrawable = new HashMap<>(0);
 
+    public void createHorde(){
+        for (int i = 0; i < 10; i++) {
+            new Client("aaa", "aaa", String.valueOf(Math.random()), new Position(7, 5), 10);
+        }
+    }
+
     private Map() {
         System.out.println("Tworzenie mapy...");
 
@@ -59,7 +60,7 @@ public class Map extends AnchorPane {
 
         Button but = new Button();
         but.setText("Add client");
-        but.setOnAction(actionEvent -> new Client("aaa", "aaa", String.valueOf(Math.random()), new Position(5, 4), 10));
+        but.setOnAction(actionEvent -> createHorde());
         this.getChildren().addAll(but);
     }
 
@@ -110,27 +111,35 @@ public class Map extends AnchorPane {
                         tileMapValues[i][y][x] = Integer.parseInt(tileMapStrArr[y * width + x]);
 
                         switch (tileMapValues[i][y][x]) {
-                            case 648:
+                            case 2:
+                                locationToStationaryDrawable.put(new Position(x, y), new Road());
+                                break;
+                            case 3:
+                                locationToStationaryDrawable.put(new Position(x, y), new Intersection());
+                                break;
+                            case 4:
+                                locationToStationaryDrawable.put(new Position(x, y), new Sidewalk());
+                                break;
+                            case 5:
+                                locationToStationaryDrawable.put(new Position(x, y), new SidewalkIntersection());
+                                break;
+                            case 6:
+                                locationToStationaryDrawable.put(new Position(x, y), new Underpass());
+                                break;
+                            case 7:
                                 RetailShop retailShop = new RetailShop(new Position(x, y));
                                 locationToStationaryDrawable.put(retailShop.getPosition(), retailShop);
                                 storage.getRetailShops().add(retailShop);
                                 storage.getAllShops().add(retailShop);
                                 storage.getLocationToShop().put(retailShop.getPosition(), retailShop);
                                 break;
-                            case 474:
+                            case 8:
                                 Wholesale wholesale = new Wholesale(new Position(x, y));
                                 locationToStationaryDrawable.put(wholesale.getPosition(), wholesale);
                                 storage.getWholesales().add(wholesale);
                                 storage.getAllShops().add(wholesale);
                                 storage.getLocationToShop().put(wholesale.getPosition(), wholesale);
                                 break;
-                            case 934:
-                                locationToStationaryDrawable.put(new Position(x, y), new Intersection());
-                                break;
-                            case 199:
-                                locationToStationaryDrawable.put(new Position(x, y), new Road());
-                                break;
-                            //TODO add sidewalks, zebra crossings(?)
                         }
                     }
                 }
@@ -155,18 +164,34 @@ public class Map extends AnchorPane {
         affine.appendScale(400 / width, 400 / height);
     }
 
-    public static String leftPadStringWithChar(String s, int fixedLength, char c) {
-        if (fixedLength < s.length()) {
-            throw new IllegalArgumentException();
+    public Color mapColor(int tileID) {
+//        1. Background
+//        2. Road
+//        3. Intersection
+//        4. Sidewalk
+//        5. Sidewalk intersection
+//        6. Underpass
+//        7. RetailShop
+//        8. Wholesale
+        switch (tileID) {
+            case 1:
+                return Color.web("000000");
+            case 2:
+            case 6:
+                return Color.web("fbf236");
+            case 3:
+                return Color.web("99e550");
+            case 4:
+                return Color.web("639bff");
+            case 5:
+                return Color.web("5fcde4");
+            case 7:
+                return Color.web("d95763");
+            case 8:
+                return Color.web("d77bba");
+            default:
+                return Color.WHITE;
         }
-
-        StringBuilder sb = new StringBuilder(s);
-
-        for (int i = 0; i < fixedLength - s.length(); i++) {
-            sb.insert(0, c);
-        }
-
-        return sb.toString();
     }
 
     public void drawLayers() {
@@ -182,9 +207,8 @@ public class Map extends AnchorPane {
             g.setTransform(affine);
             for (int x = 0; x < width; x++) {
                 for (int y = 0; y < height; y++) {
-                    String color = leftPadStringWithChar(String.valueOf(tileMapValues[i][y][x]), 3, '0');
-                    if (!color.equals("000")) {
-                        g.setFill(Color.web(color));
+                    if (tileMapValues[i][y][x] != 0) {
+                        g.setFill(mapColor(tileMapValues[i][y][x]));
                         g.fillRect(x, y, 1, 1);
                     }
                 }
@@ -199,6 +223,9 @@ public class Map extends AnchorPane {
             case Client -> {
                 return Color.WHITE;
             }
+            case Supplier -> {
+                return Color.DARKBLUE;
+            }
             case None -> {
                 return Color.RED;
             }
@@ -206,16 +233,16 @@ public class Map extends AnchorPane {
         return null;
     }
 
-    public boolean isIntersectionOccupied(Drawable stationaryObjectInNewPosition, ArrayList<Drawable> entitiesOnNextPosition) {
-        return (stationaryObjectInNewPosition.getObjectType() == DrawableType.Intersection ||
-                stationaryObjectInNewPosition.getObjectType() == DrawableType.SidewalkIntersection) && !entitiesOnNextPosition.isEmpty();
-    }
-
-    public boolean isShopOccupied(Drawable stationaryObjectInNewPosition, ArrayList<Drawable> entitiesOnNextPosition, Position position) {
-        return (stationaryObjectInNewPosition.getObjectType() == DrawableType.RetailShop ||
-                stationaryObjectInNewPosition.getObjectType() == DrawableType.Wholesale)
-                && entitiesOnNextPosition.size() >= Storage.getInstance().getLocationToShop().get(position).getActualCapacity();
-    }
+//    public boolean isIntersectionOccupied(Drawable stationaryObjectInNewPosition, ArrayList<Drawable> entitiesOnNextPosition) {
+//        return (stationaryObjectInNewPosition.getObjectType() == DrawableType.Intersection ||
+//                stationaryObjectInNewPosition.getObjectType() == DrawableType.SidewalkIntersection) && !entitiesOnNextPosition.isEmpty();
+//    }
+//
+//    public boolean isShopOccupied(Drawable stationaryObjectInNewPosition, ArrayList<Drawable> entitiesOnNextPosition, Position position) {
+//        return (stationaryObjectInNewPosition.getObjectType() == DrawableType.RetailShop ||
+//                stationaryObjectInNewPosition.getObjectType() == DrawableType.Wholesale)
+//                && entitiesOnNextPosition.size() >= Storage.getInstance().getLocationToShop().get(position).getActualCapacity();
+//    }
 
     public void moveToPosition(Movable objectToMove, Position position) {
         Drawable stationaryObjectInNewPosition = locationToStationaryDrawable.get(position);
@@ -228,8 +255,7 @@ public class Map extends AnchorPane {
             ArrayList<Drawable> entitiesOnCurrentPosition = locationToDrawable.get(objectToMove.getPosition());
 
             if (entitiesOnNextPosition != null) {
-                if (isIntersectionOccupied(stationaryObjectInNewPosition, entitiesOnNextPosition) ||
-                        isShopOccupied(stationaryObjectInNewPosition, entitiesOnNextPosition, position)) {
+                if (objectToMove.isSpecialPositionOccupied(stationaryObjectInNewPosition, entitiesOnNextPosition, position)) {
                     canMove = false;
                 }
 
@@ -255,10 +281,19 @@ public class Map extends AnchorPane {
         }
     }
 
+    public boolean isNotUnderpassClient(Movable movable) {
+        return !(getLocationToStationaryDrawable().get(movable.getPosition()).getObjectType() == DrawableType.Underpass
+                && movable.getObjectType() == DrawableType.Client);
+    }
+
     synchronized public void drawOnMap(Movable movable) {
         gObjLayer.clearRect(movable.getLastPosition().getX(), movable.getLastPosition().getY(), 1, 1);
-        gObjLayer.setFill(SpritePicker(movable));
-        gObjLayer.fillRect(movable.getPosition().getX(), movable.getPosition().getY(), 1, 1);
+
+        // if Client is on Underpass type don't render Client sprite
+        if (getLocationToStationaryDrawable().get(movable.getPosition()) != null && isNotUnderpassClient(movable)) {
+            gObjLayer.setFill(SpritePicker(movable));
+            gObjLayer.fillRect(movable.getPosition().getX(), movable.getPosition().getY(), 1, 1);
+        }
 
         List<Drawable> objOnlastPosition = locationToDrawable.get(movable.getLastPosition());
 
@@ -266,9 +301,21 @@ public class Map extends AnchorPane {
             if (objOnlastPosition.isEmpty()) {
                 locationToDrawable.remove(movable.getLastPosition());
             } else {
-                Drawable draw = objOnlastPosition.get(0);
-                gObjLayer.setFill(SpritePicker(draw));
-                gObjLayer.fillRect(movable.getLastPosition().getX(), movable.getLastPosition().getY(), 1, 1);
+                // if last position was underpass check if there is supplier to render
+                if (getLocationToStationaryDrawable().get(movable.getPosition()).getObjectType() == DrawableType.Underpass) {
+                    Drawable draw = objOnlastPosition.stream()
+                            .filter(drawable -> drawable.getObjectType().equals(DrawableType.Supplier))
+                            .findAny()
+                            .orElse(null);
+                    if(draw != null) {
+                        gObjLayer.setFill(SpritePicker(draw));
+                        gObjLayer.fillRect(movable.getLastPosition().getX(), movable.getLastPosition().getY(), 1, 1);
+                    }
+                } else {
+                    Drawable draw = objOnlastPosition.get(0);
+                    gObjLayer.setFill(SpritePicker(draw));
+                    gObjLayer.fillRect(movable.getLastPosition().getX(), movable.getLastPosition().getY(), 1, 1);
+                }
             }
         }
     }

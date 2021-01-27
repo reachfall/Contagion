@@ -1,12 +1,18 @@
 package com.contagion.control;
 
 import com.contagion.map.Map;
+import com.contagion.pathfinding.Node;
 import com.contagion.tiles.DrawableType;
+import com.sun.source.tree.Tree;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
+import java.util.*;
+
 public class Main extends Application {
+
+
 
     @Override
     public void start(Stage stage) throws Exception {
@@ -16,8 +22,6 @@ public class Main extends Application {
         Scene scene = new Scene(map, 400, 400);
         stage.setScene(scene);
         stage.show();
-
-        System.out.println((int)(Math.random() * (1 + 1)));
 
 //        Parent root = FXMLLoader.load(getClass().getResource("com/contagion/viewManager/views/AddClient.fxml"));
 //        Stage stage1 = new Stage();

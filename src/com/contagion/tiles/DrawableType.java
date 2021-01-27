@@ -9,7 +9,7 @@ public enum DrawableType {
     Intersection,
     Sidewalk,
     SidewalkIntersection,
-    ZebraCrossing,
-    Grass,
-    None
+    Underpass,
+    Background,
+    None;
 }
