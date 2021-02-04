@@ -10,8 +10,7 @@ import com.contagion.map.Map;
 import com.contagion.map.Position;
 
 import java.util.ArrayList;
-import java.util.Queue;
-
+import java.util.concurrent.Phaser;
 
 public class Client extends Person {
 
@@ -19,17 +18,16 @@ public class Client extends Person {
     private ArrayList<Product> productsInCart;
     private String nextShop;
 
-    public Client(String name, String surname, String id, Position position, int cartCapacity) {
-        super(name, surname, id, position);
+    public Client(String name, String surname, String id, Position position, int cartCapacity, Phaser phaser) {
+        super(name, surname, id, position, phaser);
         this.cartCapacity = cartCapacity;
         this.productsInCart = new ArrayList<>();
-        System.out.println("Created a client");
     }
 
     @Override
     public void run() {
         try {
-            if(instructions.isEmpty()){
+            if (instructions.isEmpty()) {
                 findWayToShop();
             }
             interpretInstructions();
@@ -37,6 +35,9 @@ public class Client extends Person {
         } catch (Exception e) {
             System.err.println("Exception in client" + this.toString());
             System.err.println(e.getStackTrace());
+        } finally {
+            System.out.println(phaser.getArrivedParties());
+            phaser.arriveAndAwaitAdvance();
         }
     }
 
@@ -49,7 +50,7 @@ public class Client extends Person {
         return (int) (Math.random() * (max + 1));
     }
 
-    public void getShoppingInstructions(){
+    public void getShoppingInstructions() {
         int noProductsToPick = randomPick(cartCapacity);
         int noProductsToEat = productsInCart.size() + noProductsToPick - cartCapacity;
         if (noProductsToEat > 0) {
@@ -58,13 +59,13 @@ public class Client extends Person {
             }
         }
         for (int i = 0; i < noProductsToPick; i++) {
-            instructions.add("wait");
+            instructions.add("buy");
         }
         instructions.add("exit");
     }
 
-    public void findWayToShop(){
-        Shop shop = Storage.getInstance().getAllShops().get(randomPick(Storage.getInstance().getAllShops().size() - 1));
+    public void findWayToShop() {
+        Shop shop = Storage.INSTANCE.getAllShops().get(randomPick(Storage.INSTANCE.getAllShops().size() - 1));
         nextShop = shop.getName();
         ArrayList<String> newInstructionsQueue = Pathfinder.findPath(position, shop.getPosition(), this.getObjectType());
         if (newInstructionsQueue == null) {
@@ -89,7 +90,7 @@ public class Client extends Person {
                 instructions.remove(0);
                 break;
             case "buy":
-                Product product = Storage.getInstance().getLocationToShop().get(position).getRandomProduct();
+                Product product = Storage.INSTANCE.getShopOnPosition(position).getRandomProduct();
                 if (product != null) {
                     productsInCart.add(product);
                     instructions.remove(0);
@@ -130,6 +131,11 @@ public class Client extends Person {
         return (stationaryObjectInNewPosition.getObjectType() == DrawableType.SidewalkIntersection && !entitiesOnNextPosition.isEmpty()) ||
                 ((stationaryObjectInNewPosition.getObjectType() == DrawableType.RetailShop ||
                         stationaryObjectInNewPosition.getObjectType() == DrawableType.Wholesale)
-                        && entitiesOnNextPosition.size() >= Storage.getInstance().getLocationToShop().get(position).getActualCapacity());
+                        && entitiesOnNextPosition.size() >= Storage.INSTANCE.getShopOnPosition(position).getActualCapacity());
+    }
+
+    @Override
+    protected void _destroy() {
+
     }
 }

@@ -9,7 +9,7 @@ public interface Movable extends Drawable {
     public void setPosition(Position position);
     public void setLastPosition(Position lastPosition);
     public Position getLastPosition();
+    public boolean isSick();
 
-    //checks if client/supplier can access intersection/shop (I KNOW -- CHANGE NAME)
     public boolean isSpecialPositionOccupied(Drawable stationaryObjectInNewPosition, ArrayList<Drawable> entitiesOnNextPosition, Position position);
 }

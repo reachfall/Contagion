@@ -10,24 +10,14 @@ import com.contagion.shop.Wholesale;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-public class Storage {
-    private static Storage instance;
+public enum Storage {
+    INSTANCE;
     private final ArrayList<Client> clients = new ArrayList<>();
     private final ArrayList<Supplier> suppliers = new ArrayList<>();
     private final ArrayList<RetailShop> retailShops = new ArrayList<>();
     private final ArrayList<Wholesale> wholesales = new ArrayList<>();
     private final ArrayList<Shop> allShops = new ArrayList<>();
     private final HashMap<Position, Shop> locationToShop = new HashMap<>();
-
-    private Storage() {
-    }
-
-    public static Storage getInstance() {
-        if (instance == null) {
-            instance = new Storage();
-        }
-        return instance;
-    }
 
     public ArrayList<Client> getClients() {
         return clients;
@@ -49,7 +39,31 @@ public class Storage {
         return allShops;
     }
 
-    public HashMap<Position, Shop> getLocationToShop() {
-        return locationToShop;
+    public Shop getShopOnPosition(Position position) {
+        return locationToShop.get(position);
+    }
+
+    public void addClient(Client client) {
+        clients.add(client);
+    }
+
+    public void addSupplier(Supplier supplier) {
+        suppliers.add(supplier);
+    }
+
+    public void addRetailShop(RetailShop retailShop) {
+        retailShops.add(retailShop);
+    }
+
+    public void addWholesale(Wholesale wholesale) {
+        wholesales.add(wholesale);
+    }
+
+    public void addShop(Shop shop) {
+        allShops.add(shop);
+    }
+
+    public void addLocationToShop(Position position, Shop shop) {
+        locationToShop.put(position, shop);
     }
 }

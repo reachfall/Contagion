@@ -1,19 +1,55 @@
 package com.contagion.shop;
 
+import com.contagion.control.Randomize;
 import com.contagion.map.Position;
 import com.contagion.tiles.Drawable;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
 
 public abstract class Shop implements Drawable {
-    private Position position;
-    private String name;
-    private ArrayList<Product> supply;
-    private Object supplyMonitor = new Object();
-    private int actualCapacity = 3;
+    protected final String name;
+    protected final UUID id;
+    protected final Position position;
+    protected final int maxClientCapacity;
+    protected int actualCapacity;
+    protected final List<Product> currentSupply;
+    protected final Object currentSupplyMonitor;
+    protected final int storageCapacity;
 
-    public Shop(Position position) {
+    public Shop(String name, Position position, int maxClientCapacity, int storageCapacity) {
+        this.name = name;
+        this.id = UUID.randomUUID();
         this.position = position;
+        this.maxClientCapacity = maxClientCapacity;
+        this.actualCapacity = maxClientCapacity;
+        this.storageCapacity = storageCapacity;
+        this.currentSupply = new ArrayList<>();
+        this.currentSupplyMonitor = new Object();
+    }
+
+    @Override
+    public String toString() {
+        return "Shop{" +
+                "name='" + name + '\'' +
+                ", position=" + position +
+                ", maxClientCapacity=" + maxClientCapacity +
+                ", currentClientCapacity=" + actualCapacity +
+                ", currentSupply=" + currentSupply +
+                ", currentSupplyMonitor=" + currentSupplyMonitor +
+                '}';
+    }
+
+    public Product getRandomProduct() {
+        synchronized (currentSupplyMonitor) {
+            if (currentSupply.isEmpty()) {
+                return null;
+            } else {
+                return currentSupply.remove(Randomize.INSTANCE.randomNumberGenerator(0, currentSupply.size() - 1));
+            }
+        }
     }
 
     public Position getPosition() {
@@ -28,16 +64,15 @@ public abstract class Shop implements Drawable {
         return actualCapacity;
     }
 
-    public Product getRandomProduct() {
-        Product product;
-        synchronized (supplyMonitor) {
-            if(supply.size() == 0){
-                return null;
-            }
-            int index = (int) (Math.random() * (supply.size()));
-            product = supply.get(index);
-            supply.remove(index);
-        }
-        return product;
+    public UUID getId() {
+        return id;
+    }
+
+    public void lockdown() {
+        actualCapacity = (int) (maxClientCapacity * 0.25);
+    }
+
+    public void endLockdown() {
+        actualCapacity = maxClientCapacity;
     }
 }

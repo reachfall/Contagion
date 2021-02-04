@@ -8,7 +8,7 @@ public class ScheduledExecution {
 
     public static ScheduledExecutorService getInstance() {
         if(instance == null) {
-            instance = Executors.newScheduledThreadPool(10);
+            instance = Executors.newScheduledThreadPool(50);
         }
 
         return instance;

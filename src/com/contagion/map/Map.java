@@ -1,9 +1,13 @@
 package com.contagion.map;
 
+import com.contagion.control.Randomize;
+import com.contagion.control.ScheduledExecution;
 import com.contagion.control.Storage;
 import com.contagion.infrastructure.*;
 import com.contagion.person.Client;
+import com.contagion.person.Supplier;
 import com.contagion.shop.RetailShop;
+import com.contagion.shop.Shop;
 import com.contagion.shop.Wholesale;
 import com.contagion.tiles.Drawable;
 import com.contagion.tiles.DrawableType;
@@ -12,6 +16,7 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.paint.Color;
 import javafx.scene.transform.Affine;
 import org.w3c.dom.Document;
@@ -25,11 +30,11 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.Phaser;
+import java.util.concurrent.TimeUnit;
 
-public class Map extends AnchorPane {
+public class Map extends AnchorPane implements Runnable {
     private static Map instance;
     private final ArrayList<Canvas> canvases = new ArrayList<>();
     private Affine affine;
@@ -39,16 +44,15 @@ public class Map extends AnchorPane {
     private int tileWidth;
     private int tileHeight;
     private int layers;
+    private final Phaser phaser;
     private GraphicsContext gObjLayer;
 
     private HashMap<Position, ArrayList<Drawable>> locationToDrawable = new HashMap<>(0);
     Object locationToDrawableMonitor = new Object();
     private HashMap<Position, Drawable> locationToStationaryDrawable = new HashMap<>(0);
 
-    public void createHorde(){
-        for (int i = 0; i < 10; i++) {
-            new Client("aaa", "aaa", String.valueOf(Math.random()), new Position(7, 5), 10);
-        }
+    public DrawableType getPostionType(Position position) {
+        return locationToStationaryDrawable.get(position).getObjectType();
     }
 
     private Map() {
@@ -58,15 +62,41 @@ public class Map extends AnchorPane {
         prepareCanvases();
         drawLayers();
 
-        Button but = new Button();
-        but.setText("Add client");
-        but.setOnAction(actionEvent -> createHorde());
-        this.getChildren().addAll(but);
+        Button client = new Button();
+        client.setText("Add client");
+        client.setOnAction(actionEvent -> createClientHorde());
+
+        Button supplier = new Button();
+        supplier.setText("Add supplier");
+        supplier.setOnAction(actionEvent -> createSupplierHorde());
+
+
+        HBox hBox = new HBox();
+        hBox.getChildren().add(client);
+        hBox.getChildren().add(supplier);
+        this.getChildren().add(hBox);
+
+        phaser = new Phaser(1);
+
+        ScheduledExecution.getInstance().scheduleAtFixedRate(this::run, 0, 100, TimeUnit.MILLISECONDS);
     }
 
+    public void createClientHorde() {
+        for (int i = 0; i < 10; i++) {
+            Storage.INSTANCE.addClient(new Client("aaa", "aaa", String.valueOf(Math.random()), new Position(7, 5), 10, this.phaser));
+        }
+    }
 
-    public HashMap<Position, ArrayList<Drawable>> getLocationToDrawable() {
-        return locationToDrawable;
+    public void createSupplierHorde() {
+        ArrayList<RetailShop> retailShops = Storage.INSTANCE.getRetailShops();
+        ArrayList<Wholesale> wholesales = Storage.INSTANCE.getWholesales();
+
+        for (int i = 0; i < 10; i++) {
+            List<Shop> shops = new ArrayList<>(Randomize.INSTANCE.sample(wholesales, Randomize.INSTANCE.randomNumberGenerator(1, wholesales.size() - 1)));
+            shops.addAll(Randomize.INSTANCE.sample(retailShops, Randomize.INSTANCE.randomNumberGenerator(1, retailShops.size() - 1)));
+
+            Storage.INSTANCE.addSupplier(new Supplier("aaa", "aaa", String.valueOf(Math.random()), new Position(7, 8), shops, this.phaser));
+        }
     }
 
     public HashMap<Position, Drawable> getLocationToStationaryDrawable() {
@@ -104,7 +134,7 @@ public class Map extends AnchorPane {
                 eElement = (Element) node;
                 tileMapStrArr = eElement.getElementsByTagName("data").item(0).getTextContent().replaceAll("\\s+", "").split(",");
 
-                Storage storage = Storage.getInstance();
+                Storage storage = Storage.INSTANCE;
 
                 for (int y = 0; y < height; y++) {
                     for (int x = 0; x < width; x++) {
@@ -127,18 +157,18 @@ public class Map extends AnchorPane {
                                 locationToStationaryDrawable.put(new Position(x, y), new Underpass());
                                 break;
                             case 7:
-                                RetailShop retailShop = new RetailShop(new Position(x, y));
+                                RetailShop retailShop = Randomize.INSTANCE.createRetailShop(new Position(x, y));
                                 locationToStationaryDrawable.put(retailShop.getPosition(), retailShop);
-                                storage.getRetailShops().add(retailShop);
-                                storage.getAllShops().add(retailShop);
-                                storage.getLocationToShop().put(retailShop.getPosition(), retailShop);
+                                storage.addRetailShop(retailShop);
+                                storage.addShop(retailShop);
+                                storage.addLocationToShop(retailShop.getPosition(), retailShop);
                                 break;
                             case 8:
-                                Wholesale wholesale = new Wholesale(new Position(x, y));
+                                Wholesale wholesale = Randomize.INSTANCE.createWholesale(new Position(x, y));
                                 locationToStationaryDrawable.put(wholesale.getPosition(), wholesale);
-                                storage.getWholesales().add(wholesale);
-                                storage.getAllShops().add(wholesale);
-                                storage.getLocationToShop().put(wholesale.getPosition(), wholesale);
+                                storage.addWholesale(wholesale);
+                                storage.addShop(wholesale);
+                                storage.addLocationToShop(wholesale.getPosition(), wholesale);
                                 break;
                         }
                     }
@@ -233,23 +263,13 @@ public class Map extends AnchorPane {
         return null;
     }
 
-//    public boolean isIntersectionOccupied(Drawable stationaryObjectInNewPosition, ArrayList<Drawable> entitiesOnNextPosition) {
-//        return (stationaryObjectInNewPosition.getObjectType() == DrawableType.Intersection ||
-//                stationaryObjectInNewPosition.getObjectType() == DrawableType.SidewalkIntersection) && !entitiesOnNextPosition.isEmpty();
-//    }
-//
-//    public boolean isShopOccupied(Drawable stationaryObjectInNewPosition, ArrayList<Drawable> entitiesOnNextPosition, Position position) {
-//        return (stationaryObjectInNewPosition.getObjectType() == DrawableType.RetailShop ||
-//                stationaryObjectInNewPosition.getObjectType() == DrawableType.Wholesale)
-//                && entitiesOnNextPosition.size() >= Storage.getInstance().getLocationToShop().get(position).getActualCapacity();
-//    }
-
     public void moveToPosition(Movable objectToMove, Position position) {
         Drawable stationaryObjectInNewPosition = locationToStationaryDrawable.get(position);
 
         boolean canMove = true;
 
         synchronized (locationToDrawableMonitor) {
+
 
             ArrayList<Drawable> entitiesOnNextPosition = locationToDrawable.get(position);
             ArrayList<Drawable> entitiesOnCurrentPosition = locationToDrawable.get(objectToMove.getPosition());
@@ -286,35 +306,37 @@ public class Map extends AnchorPane {
                 && movable.getObjectType() == DrawableType.Client);
     }
 
-    synchronized public void drawOnMap(Movable movable) {
-        gObjLayer.clearRect(movable.getLastPosition().getX(), movable.getLastPosition().getY(), 1, 1);
+    public void drawOnMap(Movable movable) {
+        synchronized (locationToDrawableMonitor) {
+            gObjLayer.clearRect(movable.getLastPosition().getX(), movable.getLastPosition().getY(), 1, 1);
 
-        // if Client is on Underpass type don't render Client sprite
-        if (getLocationToStationaryDrawable().get(movable.getPosition()) != null && isNotUnderpassClient(movable)) {
-            gObjLayer.setFill(SpritePicker(movable));
-            gObjLayer.fillRect(movable.getPosition().getX(), movable.getPosition().getY(), 1, 1);
-        }
+            // if Client is on Underpass type don't render Client sprite
+            if (getLocationToStationaryDrawable().get(movable.getPosition()) != null && isNotUnderpassClient(movable)) {
+                gObjLayer.setFill(SpritePicker(movable));
+                gObjLayer.fillRect(movable.getPosition().getX(), movable.getPosition().getY(), 1, 1);
+            }
 
-        List<Drawable> objOnlastPosition = locationToDrawable.get(movable.getLastPosition());
+            List<Drawable> objOnlastPosition = locationToDrawable.get(movable.getLastPosition());
 
-        if (objOnlastPosition != null) {
-            if (objOnlastPosition.isEmpty()) {
-                locationToDrawable.remove(movable.getLastPosition());
-            } else {
-                // if last position was underpass check if there is supplier to render
-                if (getLocationToStationaryDrawable().get(movable.getPosition()).getObjectType() == DrawableType.Underpass) {
-                    Drawable draw = objOnlastPosition.stream()
-                            .filter(drawable -> drawable.getObjectType().equals(DrawableType.Supplier))
-                            .findAny()
-                            .orElse(null);
-                    if(draw != null) {
+            if (objOnlastPosition != null) {
+                if (objOnlastPosition.isEmpty()) {
+                    locationToDrawable.remove(movable.getLastPosition());
+                } else {
+                    // if last position was underpass check if there is supplier to render
+                    if (getLocationToStationaryDrawable().get(movable.getPosition()).getObjectType().equals(DrawableType.Underpass)) {
+                        Drawable draw = objOnlastPosition.stream()
+                                .filter(drawable -> drawable.getObjectType().equals(DrawableType.Supplier))
+                                .findAny()
+                                .orElse(null);
+                        if (draw != null) {
+                            gObjLayer.setFill(SpritePicker(draw));
+                            gObjLayer.fillRect(movable.getLastPosition().getX(), movable.getLastPosition().getY(), 1, 1);
+                        }
+                    } else {
+                        Drawable draw = objOnlastPosition.get(0);
                         gObjLayer.setFill(SpritePicker(draw));
                         gObjLayer.fillRect(movable.getLastPosition().getX(), movable.getLastPosition().getY(), 1, 1);
                     }
-                } else {
-                    Drawable draw = objOnlastPosition.get(0);
-                    gObjLayer.setFill(SpritePicker(draw));
-                    gObjLayer.fillRect(movable.getLastPosition().getX(), movable.getLastPosition().getY(), 1, 1);
                 }
             }
         }
@@ -325,5 +347,18 @@ public class Map extends AnchorPane {
             instance = new Map();
         }
         return instance;
+    }
+
+    @Override
+    public void run() {
+        if(phaser.getUnarrivedParties() == 1) {
+            System.out.println("Redraw map ++++++++++++++++++++++++++++++++++++++++++++++++++++");
+            // redrawMap
+            phaser.arrive();
+        }
+    }
+
+    public Phaser getPhaser() {
+        return phaser;
     }
 }
