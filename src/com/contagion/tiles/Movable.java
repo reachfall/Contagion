@@ -2,14 +2,14 @@ package com.contagion.tiles;
 
 import com.contagion.map.Position;
 
-import java.util.ArrayList;
+import java.util.List;
 
 public interface Movable extends Drawable {
-    public Position getPosition();
-    public void setPosition(Position position);
-    public void setLastPosition(Position lastPosition);
-    public Position getLastPosition();
-    public boolean isSick();
+    Position getPosition();
+    void setPosition(Position position);
+    boolean isSick();
+    void setSick();
+    boolean isVaccinated();
 
-    public boolean isSpecialPositionOccupied(Drawable stationaryObjectInNewPosition, ArrayList<Drawable> entitiesOnNextPosition, Position position);
+    boolean isSpecialPositionOccupied(Drawable stationaryObjectInNewPosition, List<Movable> entitiesOnNextPosition, Position position);
 }

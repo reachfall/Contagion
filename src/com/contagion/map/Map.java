@@ -1,8 +1,6 @@
 package com.contagion.map;
 
-import com.contagion.control.Randomize;
-import com.contagion.control.ScheduledExecution;
-import com.contagion.control.Storage;
+import com.contagion.control.*;
 import com.contagion.infrastructure.*;
 import com.contagion.person.Client;
 import com.contagion.person.Supplier;
@@ -12,6 +10,7 @@ import com.contagion.shop.Wholesale;
 import com.contagion.tiles.Drawable;
 import com.contagion.tiles.DrawableType;
 import com.contagion.tiles.Movable;
+import javafx.collections.ObservableList;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
@@ -28,10 +27,11 @@ import org.xml.sax.SAXException;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import java.awt.*;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.Phaser;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class Map extends AnchorPane implements Runnable {
@@ -44,20 +44,31 @@ public class Map extends AnchorPane implements Runnable {
     private int tileWidth;
     private int tileHeight;
     private int layers;
-    private final Phaser phaser;
     private GraphicsContext gObjLayer;
+    private final int canvasHeight;
 
-    private HashMap<Position, ArrayList<Drawable>> locationToDrawable = new HashMap<>(0);
+    private HashMap<Position, List<Movable>> locationToDrawable = new HashMap<>(0);
     Object locationToDrawableMonitor = new Object();
+
     private HashMap<Position, Drawable> locationToStationaryDrawable = new HashMap<>(0);
 
-    public DrawableType getPostionType(Position position) {
+    public DrawableType getPositionType(Position position) {
         return locationToStationaryDrawable.get(position).getObjectType();
+    }
+
+    public void removeFromLocationToDrawable(Movable entity) {
+        synchronized (locationToDrawableMonitor) {
+            System.out.println(locationToDrawable);
+            locationToDrawable.remove(entity.getPosition());
+            System.out.println(locationToDrawable);
+        }
     }
 
     private Map() {
         System.out.println("Tworzenie mapy...");
 
+        Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
+        canvasHeight = dim.height - 30;
         readXML("/Users/doot/Desktop/Contagion/res/tile/tilemap.xml");
         prepareCanvases();
         drawLayers();
@@ -70,32 +81,34 @@ public class Map extends AnchorPane implements Runnable {
         supplier.setText("Add supplier");
         supplier.setOnAction(actionEvent -> createSupplierHorde());
 
+        Button removeClient = new Button();
+        removeClient.setText("Remove client");
+        removeClient.setOnAction(actionEvent -> Storage.INSTANCE.getClients().get(0).destroy());
 
         HBox hBox = new HBox();
         hBox.getChildren().add(client);
         hBox.getChildren().add(supplier);
+        hBox.getChildren().add(removeClient);
         this.getChildren().add(hBox);
-
-        phaser = new Phaser(1);
 
         ScheduledExecution.getInstance().scheduleAtFixedRate(this::run, 0, 100, TimeUnit.MILLISECONDS);
     }
 
     public void createClientHorde() {
         for (int i = 0; i < 10; i++) {
-            Storage.INSTANCE.addClient(new Client("aaa", "aaa", String.valueOf(Math.random()), new Position(7, 5), 10, this.phaser));
+            Storage.INSTANCE.addClient(new Client("aaa", "aaa", new Position(7, 5), 10));
         }
     }
 
     public void createSupplierHorde() {
-        ArrayList<RetailShop> retailShops = Storage.INSTANCE.getRetailShops();
-        ArrayList<Wholesale> wholesales = Storage.INSTANCE.getWholesales();
+        List retailShops = Storage.INSTANCE.getRetailShops();
+        List wholesales = Storage.INSTANCE.getWholesales();
 
         for (int i = 0; i < 10; i++) {
             List<Shop> shops = new ArrayList<>(Randomize.INSTANCE.sample(wholesales, Randomize.INSTANCE.randomNumberGenerator(1, wholesales.size() - 1)));
             shops.addAll(Randomize.INSTANCE.sample(retailShops, Randomize.INSTANCE.randomNumberGenerator(1, retailShops.size() - 1)));
 
-            Storage.INSTANCE.addSupplier(new Supplier("aaa", "aaa", String.valueOf(Math.random()), new Position(7, 8), shops, this.phaser));
+            Storage.INSTANCE.addSupplier(new Supplier("aaa", "aaa", new Position(7, 8), shops));
         }
     }
 
@@ -186,12 +199,12 @@ public class Map extends AnchorPane implements Runnable {
 
     public void prepareCanvases() {
         for (int i = 0; i < layers + 1; i++) {
-            canvases.add(new Canvas(400, 400));
+            canvases.add(new Canvas(canvasHeight, canvasHeight));
         }
         this.getChildren().addAll(canvases);
 
         affine = new Affine();
-        affine.appendScale(400 / width, 400 / height);
+        affine.appendScale(canvasHeight / width, canvasHeight / height);
     }
 
     public Color mapColor(int tileID) {
@@ -248,94 +261,74 @@ public class Map extends AnchorPane implements Runnable {
         gObjLayer.setTransform(affine);
     }
 
-    public Color SpritePicker(Drawable drawable) {
-        switch (drawable.getObjectType()) {
+    public Color SpritePicker(Movable entity) {
+        if (entity.isSick()) {
+            return Color.LIGHTGREEN;
+        }
+        switch (entity.getObjectType()) {
             case Client -> {
                 return Color.WHITE;
             }
             case Supplier -> {
                 return Color.DARKBLUE;
             }
-            case None -> {
-                return Color.RED;
-            }
         }
         return null;
     }
 
-    public void moveToPosition(Movable objectToMove, Position position) {
-        Drawable stationaryObjectInNewPosition = locationToStationaryDrawable.get(position);
-
-        boolean canMove = true;
+    public boolean moveToPosition(Movable entity, Position nextPosition) {
+        Drawable stationaryOnNNextPosition = locationToStationaryDrawable.get(nextPosition);
 
         synchronized (locationToDrawableMonitor) {
+            List<Movable> entitiesOnNextPosition = locationToDrawable.get(nextPosition);
+            List<Movable> entitiesOnCurrentPosition = locationToDrawable.get(entity.getPosition());
 
-
-            ArrayList<Drawable> entitiesOnNextPosition = locationToDrawable.get(position);
-            ArrayList<Drawable> entitiesOnCurrentPosition = locationToDrawable.get(objectToMove.getPosition());
-
-            if (entitiesOnNextPosition != null) {
-                if (objectToMove.isSpecialPositionOccupied(stationaryObjectInNewPosition, entitiesOnNextPosition, position)) {
-                    canMove = false;
-                }
-
-                if (canMove) {
-                    if (entitiesOnCurrentPosition != null) {
-                        entitiesOnCurrentPosition.remove(objectToMove);
-                    }
-                    objectToMove.setLastPosition(objectToMove.getPosition());
-                    objectToMove.setPosition(position);
-                    entitiesOnNextPosition.add(objectToMove);
-                } else {
-                    objectToMove.setLastPosition(objectToMove.getPosition());
-                }
-
-            } else {
+            if (entitiesOnNextPosition == null) {
                 if (entitiesOnCurrentPosition != null) {
-                    entitiesOnCurrentPosition.remove(objectToMove);
+                    entitiesOnCurrentPosition.remove(entity);
                 }
-                objectToMove.setLastPosition(objectToMove.getPosition());
-                objectToMove.setPosition(position);
-                locationToDrawable.put(position, new ArrayList<>(List.of(objectToMove)));
+                entity.setPosition(nextPosition);
+                locationToDrawable.put(nextPosition, new ArrayList<>(List.of(entity)));
+                return true;
+            } else {
+                if (entity.isSpecialPositionOccupied(stationaryOnNNextPosition, entitiesOnNextPosition, nextPosition)) {
+                    return false;
+                } else {
+                    if (entitiesOnCurrentPosition != null) {
+                        entitiesOnCurrentPosition.remove(entity);
+                    }
+                    entity.setPosition(nextPosition);
+                    entitiesOnNextPosition.add(entity);
+                    return true;
+                }
             }
         }
     }
 
-    public boolean isNotUnderpassClient(Movable movable) {
-        return !(getLocationToStationaryDrawable().get(movable.getPosition()).getObjectType() == DrawableType.Underpass
-                && movable.getObjectType() == DrawableType.Client);
-    }
-
-    public void drawOnMap(Movable movable) {
+    public void renderEntities() {
         synchronized (locationToDrawableMonitor) {
-            gObjLayer.clearRect(movable.getLastPosition().getX(), movable.getLastPosition().getY(), 1, 1);
+            gObjLayer.clearRect(0, 0, width, height);
 
-            // if Client is on Underpass type don't render Client sprite
-            if (getLocationToStationaryDrawable().get(movable.getPosition()) != null && isNotUnderpassClient(movable)) {
-                gObjLayer.setFill(SpritePicker(movable));
-                gObjLayer.fillRect(movable.getPosition().getX(), movable.getPosition().getY(), 1, 1);
-            }
+            Iterator<HashMap.Entry<Position, List<Movable>>> iter = locationToDrawable.entrySet().iterator();
+            while (iter.hasNext()) {
+                HashMap.Entry<Position, List<Movable>> entry = iter.next();
+                Position position = entry.getKey();
+                List<Movable> entitiesOnPosition = entry.getValue();
 
-            List<Drawable> objOnlastPosition = locationToDrawable.get(movable.getLastPosition());
-
-            if (objOnlastPosition != null) {
-                if (objOnlastPosition.isEmpty()) {
-                    locationToDrawable.remove(movable.getLastPosition());
-                } else {
-                    // if last position was underpass check if there is supplier to render
-                    if (getLocationToStationaryDrawable().get(movable.getPosition()).getObjectType().equals(DrawableType.Underpass)) {
-                        Drawable draw = objOnlastPosition.stream()
-                                .filter(drawable -> drawable.getObjectType().equals(DrawableType.Supplier))
-                                .findAny()
-                                .orElse(null);
-                        if (draw != null) {
-                            gObjLayer.setFill(SpritePicker(draw));
-                            gObjLayer.fillRect(movable.getLastPosition().getX(), movable.getLastPosition().getY(), 1, 1);
+                //if entity is in the shop do not render
+                if (getPositionType(position) != DrawableType.RetailShop && getPositionType(position) != DrawableType.Wholesale) {
+                    if (getPositionType(position) == DrawableType.Underpass) {
+                        for (Movable entity : entitiesOnPosition) {
+                            if (entity.getObjectType() == DrawableType.Supplier) {
+                                gObjLayer.setFill(SpritePicker(entity));
+                                gObjLayer.fillRect(entity.getPosition().getX(), entity.getPosition().getY(), 1, 1);
+                                break;
+                            }
                         }
                     } else {
-                        Drawable draw = objOnlastPosition.get(0);
-                        gObjLayer.setFill(SpritePicker(draw));
-                        gObjLayer.fillRect(movable.getLastPosition().getX(), movable.getLastPosition().getY(), 1, 1);
+                        Movable entity = entitiesOnPosition.get(0);
+                        gObjLayer.setFill(SpritePicker(entity));
+                        gObjLayer.fillRect(entity.getPosition().getX(), entity.getPosition().getY(), 1, 1);
                     }
                 }
             }
@@ -351,14 +344,49 @@ public class Map extends AnchorPane implements Runnable {
 
     @Override
     public void run() {
-        if(phaser.getUnarrivedParties() == 1) {
-            System.out.println("Redraw map ++++++++++++++++++++++++++++++++++++++++++++++++++++");
-            // redrawMap
-            phaser.arrive();
+        if (PhaserExecution.getInstance().getUnarrivedParties() == 1) {
+            pandemicControl();
+            renderEntities();
+            PhaserExecution.getInstance().arrive();
         }
     }
 
-    public Phaser getPhaser() {
-        return phaser;
+
+    public void pandemicControl() {
+        int infected = 0;
+        synchronized (locationToDrawableMonitor) {
+            Iterator<HashMap.Entry<Position, List<Movable>>> iter = locationToDrawable.entrySet().iterator();
+            while (iter.hasNext()) {
+                HashMap.Entry<Position, List<Movable>> entry = iter.next();
+                List<Movable> entitiesOnPosition = entry.getValue();
+
+                // removes empty locations
+                if (entitiesOnPosition.isEmpty()) {
+                    iter.remove();
+                    continue;
+                }
+
+                // possibility of infection without infected 0.03
+                double infectionProbability = PandemicControl.INSTANCE.getInitialSicknessProbability();
+
+                for (Movable entity : entitiesOnPosition) {
+                    if (entity.isSick()) {
+                        infectionProbability += PandemicControl.INSTANCE.getSicknessSpreadProbability();
+                    }
+                }
+
+                for (Movable entity : entitiesOnPosition) {
+
+                    if (!entity.isSick()) {
+                        double probability = entity.isVaccinated() ? infectionProbability - PandemicControl.INSTANCE.getVaccineProtectionProbability() : infectionProbability;
+                        if ((entity.getObjectType() == DrawableType.Supplier ? probability / PandemicControl.INSTANCE.getSupplierViralSecurityRatio() : probability) > Math.random()) {
+                            entity.setSick();
+                            infected++;
+                        }
+                    }
+                }
+            }
+        }
+        PandemicControl.INSTANCE.setLockdown(infected);
     }
 }

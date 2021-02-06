@@ -1,14 +1,14 @@
 package com.contagion.control;
 
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 public class ScheduledExecution {
-    private static ScheduledExecutorService instance;
+    private static ScheduledThreadPoolExecutor instance;
 
-    public static ScheduledExecutorService getInstance() {
-        if(instance == null) {
-            instance = Executors.newScheduledThreadPool(50);
+    public static ScheduledThreadPoolExecutor getInstance() {
+        if (instance == null) {
+            instance = new ScheduledThreadPoolExecutor(500);
+            instance.setRemoveOnCancelPolicy(true);
         }
 
         return instance;

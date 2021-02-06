@@ -10,7 +10,7 @@ public class AddClient {
 
     @FXML
     private void createRandomClient(ActionEvent actionEvent) {
-        Client client = new Client("asdasd", "asdasd", String.valueOf(Math.random()), new Position(0, 0), 10, Map.getInstance().getPhaser());
+        Client client = new Client("asdasd", "asdasd", new Position(0, 0), 10);
     }
 
     public void saveClient(ActionEvent actionEvent) {

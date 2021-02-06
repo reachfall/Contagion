@@ -1,6 +1,8 @@
 package com.contagion.person;
 
+import com.contagion.control.PhaserExecution;
 import com.contagion.control.Randomize;
+import com.contagion.control.ScheduledExecution;
 import com.contagion.control.Storage;
 import com.contagion.map.Map;
 import com.contagion.pathfinding.Pathfinder;
@@ -9,43 +11,48 @@ import com.contagion.shop.Package;
 import com.contagion.tiles.Drawable;
 import com.contagion.tiles.DrawableType;
 import com.contagion.map.Position;
+import com.contagion.tiles.Movable;
+import javafx.beans.property.IntegerProperty;
+import javafx.beans.property.SimpleIntegerProperty;
 
 import java.util.*;
-import java.util.concurrent.Phaser;
 
 public class Supplier extends Person {
     private final List<Shop> shopsToVisit;
     private final HashMap<UUID, List<Package>> packageList;
-    private int trunkCapacity;
+    private final int trunkCapacity;
     private int currentLoad;
+    private IntegerProperty fuelLevel;
 
-    public Supplier(String name, String surname, String id, Position position, List<Shop> shopsToVisit, Phaser phaser) {
-        super(name, surname, id, position, phaser);
+    public Supplier(String name, String surname, Position position, List<Shop> shopsToVisit) {
+        super(name, surname, position);
         this.shopsToVisit = new ArrayList<>(shopsToVisit);
         this.packageList = new HashMap<>();
         this.trunkCapacity = Randomize.INSTANCE.randomNumberGenerator(5, 10);
         this.currentLoad = 0;
+        this.fuelLevel = new SimpleIntegerProperty((int) (Storage.INSTANCE.getLongestPath() * 1.1));
     }
 
     @Override
     public void run() {
         try {
-            if (instructions.isEmpty()) {
-                nextShop();
-            }
+            nextShop();
             interpretInstructions();
-            Map.getInstance().drawOnMap(this);
         } catch (Exception e) {
             System.err.println("Exception in supplier " + this.toString());
             System.err.println(e.getStackTrace());
+        } finally {
+            PhaserExecution.getInstance().arriveAndAwaitAdvance();
         }
     }
 
     public void nextShop() {
-        if (shopsToVisit.isEmpty()) {
-            instructions.add("stop");
-        } else {
-            findWayToShop();
+        if (instructions.isEmpty()) {
+            if (shopsToVisit.isEmpty()) {
+                instructions.add("stop");
+            } else {
+                findWayToShop();
+            }
         }
     }
 
@@ -64,7 +71,6 @@ public class Supplier extends Person {
         }
     }
 
-
     //adding new packages, one for each retail shop in shopsToVisit -- takes one move
     public void pickUpPackages() {
         Wholesale wholesale = (Wholesale) Storage.INSTANCE.getShopOnPosition(position);
@@ -73,7 +79,7 @@ public class Supplier extends Person {
                 if (shop.getObjectType() == DrawableType.RetailShop) {
                     Package newPackage = wholesale.createPackage(shop.getId());
                     List<Package> packageList = this.packageList.get(shop.getId());
-                    if (packageList == null){
+                    if (packageList == null) {
                         this.packageList.put(shop.getId(), new ArrayList<>(Arrays.asList(newPackage)));
                     } else {
                         packageList.add(newPackage);
@@ -96,13 +102,20 @@ public class Supplier extends Person {
         instructions.remove(0);
     }
 
+    public void fillTank() {
+        fuelLevel.set((int) (Storage.INSTANCE.getLongestPath() * 1.1));
+    }
 
     public void interpretInstructions() {
         switch (instructions.get(0)) {
             case "pickUpPackages":
+                fillTank();
+                shopCuration();
                 pickUpPackages();
                 break;
             case "deliverPackages":
+                fillTank();
+                shopCuration();
                 deliverPackages();
                 break;
             case "stop":
@@ -111,27 +124,29 @@ public class Supplier extends Person {
                 }
                 break;
             case "up":
-                Map.getInstance().moveToPosition(this, new Position(position.getX(), position.getY() - 1));
-                if (comparePositions()) {
+                if (Map.getInstance().moveToPosition(this, new Position(position.getX(), position.getY() - 1))) {
                     instructions.remove(0);
+                    fuelLevel.setValue(fuelLevel.getValue() - 1);
                 }
                 break;
             case "down":
-                Map.getInstance().moveToPosition(this, new Position(position.getX(), position.getY() + 1));
-                if (comparePositions()) {
+                if (Map.getInstance().moveToPosition(this, new Position(position.getX(), position.getY() + 1))) {
                     instructions.remove(0);
+                    fuelLevel.setValue(fuelLevel.getValue() - 1);
                 }
                 break;
             case "left":
-                Map.getInstance().moveToPosition(this, new Position(position.getX() - 1, position.getY()));
-                if (comparePositions()) {
+                if (Map.getInstance().moveToPosition(this, new Position(position.getX() - 1, position.getY()))) {
                     instructions.remove(0);
+                    fuelLevel.setValue(fuelLevel.getValue() - 1);
+
                 }
                 break;
             case "right":
-                Map.getInstance().moveToPosition(this, new Position(position.getX() + 1, position.getY()));
-                if (comparePositions()) {
+                if (Map.getInstance().moveToPosition(this, new Position(position.getX() + 1, position.getY()))) {
                     instructions.remove(0);
+                    fuelLevel.setValue(fuelLevel.getValue() - 1);
+
                 }
                 break;
             default:
@@ -146,7 +161,7 @@ public class Supplier extends Person {
     }
 
     @Override
-    public boolean isSpecialPositionOccupied(Drawable stationaryObjectInNewPosition, ArrayList<Drawable> entitiesOnNextPosition, Position position) {
+    public boolean isSpecialPositionOccupied(Drawable stationaryObjectInNewPosition, List<Movable> entitiesOnNextPosition, Position position) {
         if (stationaryObjectInNewPosition.getObjectType() == DrawableType.Intersection ||
                 stationaryObjectInNewPosition.getObjectType() == DrawableType.RetailShop ||
                 stationaryObjectInNewPosition.getObjectType() == DrawableType.Wholesale) {
@@ -161,6 +176,10 @@ public class Supplier extends Person {
 
     @Override
     protected void _destroy() {
+        Storage.INSTANCE.removeSupplier(this);
+    }
 
+    public IntegerProperty fuelLevelProperty() {
+        return fuelLevel;
     }
 }

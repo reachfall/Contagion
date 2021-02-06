@@ -1,5 +1,7 @@
 package com.contagion.person;
 
+import com.contagion.control.PhaserExecution;
+import com.contagion.control.ScheduledExecution;
 import com.contagion.control.Storage;
 import com.contagion.pathfinding.Pathfinder;
 import com.contagion.shop.Product;
@@ -8,18 +10,19 @@ import com.contagion.tiles.Drawable;
 import com.contagion.tiles.DrawableType;
 import com.contagion.map.Map;
 import com.contagion.map.Position;
+import com.contagion.tiles.Movable;
 
 import java.util.ArrayList;
-import java.util.concurrent.Phaser;
+import java.util.List;
 
 public class Client extends Person {
 
-    private int cartCapacity;
-    private ArrayList<Product> productsInCart;
+    private final int cartCapacity;
+    private final ArrayList<Product> productsInCart;
     private String nextShop;
 
-    public Client(String name, String surname, String id, Position position, int cartCapacity, Phaser phaser) {
-        super(name, surname, id, position, phaser);
+    public Client(String name, String surname, Position position, int cartCapacity) {
+        super(name, surname, position);
         this.cartCapacity = cartCapacity;
         this.productsInCart = new ArrayList<>();
     }
@@ -27,17 +30,13 @@ public class Client extends Person {
     @Override
     public void run() {
         try {
-            if (instructions.isEmpty()) {
-                findWayToShop();
-            }
+            findWayToShop();
             interpretInstructions();
-            Map.getInstance().drawOnMap(this);
         } catch (Exception e) {
-            System.err.println("Exception in client" + this.toString());
+            System.err.println("Exception in client " + this.toString());
             System.err.println(e.getStackTrace());
         } finally {
-            System.out.println(phaser.getArrivedParties());
-            phaser.arriveAndAwaitAdvance();
+            PhaserExecution.getInstance().arriveAndAwaitAdvance();
         }
     }
 
@@ -65,19 +64,22 @@ public class Client extends Person {
     }
 
     public void findWayToShop() {
-        Shop shop = Storage.INSTANCE.getAllShops().get(randomPick(Storage.INSTANCE.getAllShops().size() - 1));
-        nextShop = shop.getName();
-        ArrayList<String> newInstructionsQueue = Pathfinder.findPath(position, shop.getPosition(), this.getObjectType());
-        if (newInstructionsQueue == null) {
-            throw new NullPointerException("Can't find path");
+        if (instructions.isEmpty()){
+            Shop shop = Storage.INSTANCE.getAllShops().get(randomPick(Storage.INSTANCE.getAllShops().size() - 1));
+            nextShop = shop.getName();
+            ArrayList<String> newInstructionsQueue = Pathfinder.findPath(position, shop.getPosition(), this.getObjectType());
+            if (newInstructionsQueue == null) {
+                throw new NullPointerException("Can't find path");
+            }
+            instructions.addAll(newInstructionsQueue);
+            instructions.add("shop");
         }
-        instructions.addAll(newInstructionsQueue);
-        instructions.add("shop");
     }
 
     public void interpretInstructions() {
         switch (instructions.get(0)) {
             case "shop":
+                shopCuration();
                 getShoppingInstructions();
                 instructions.remove(0);
                 break;
@@ -97,45 +99,42 @@ public class Client extends Person {
                 }
                 break;
             case "up":
-                Map.getInstance().moveToPosition(this, new Position(position.getX(), position.getY() - 1));
-                if (comparePositions()) {
+                if (Map.getInstance().moveToPosition(this, new Position(position.getX(), position.getY() - 1))) {
                     instructions.remove(0);
                 }
                 break;
             case "down":
-                Map.getInstance().moveToPosition(this, new Position(position.getX(), position.getY() + 1));
-                if (comparePositions()) {
+                if (Map.getInstance().moveToPosition(this, new Position(position.getX(), position.getY() + 1))) {
                     instructions.remove(0);
                 }
                 break;
             case "left":
-                Map.getInstance().moveToPosition(this, new Position(position.getX() - 1, position.getY()));
-                if (comparePositions()) {
+                if (Map.getInstance().moveToPosition(this, new Position(position.getX() - 1, position.getY()))) {
                     instructions.remove(0);
                 }
                 break;
             case "right":
-                Map.getInstance().moveToPosition(this, new Position(position.getX() + 1, position.getY()));
-                if (comparePositions()) {
+                if (Map.getInstance().moveToPosition(this, new Position(position.getX() + 1, position.getY()))) {
                     instructions.remove(0);
                 }
                 break;
             default:
-                lastPosition = position;
                 instructions.remove(0);
         }
     }
 
     @Override
-    public boolean isSpecialPositionOccupied(Drawable stationaryObjectInNewPosition, ArrayList<Drawable> entitiesOnNextPosition, Position position) {
+    public boolean isSpecialPositionOccupied(Drawable stationaryObjectInNewPosition, List<Movable> entitiesOnNextPosition, Position position) {
+        long clientsOnPosition = entitiesOnNextPosition.stream().filter(o -> o.getObjectType() == DrawableType.Client).count();
+
         return (stationaryObjectInNewPosition.getObjectType() == DrawableType.SidewalkIntersection && !entitiesOnNextPosition.isEmpty()) ||
                 ((stationaryObjectInNewPosition.getObjectType() == DrawableType.RetailShop ||
                         stationaryObjectInNewPosition.getObjectType() == DrawableType.Wholesale)
-                        && entitiesOnNextPosition.size() >= Storage.INSTANCE.getShopOnPosition(position).getActualCapacity());
+                        && clientsOnPosition >= Storage.INSTANCE.getShopOnPosition(position).getActualCapacity());
     }
 
     @Override
     protected void _destroy() {
-
+        Storage.INSTANCE.removeClient(this);
     }
 }

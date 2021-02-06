@@ -5,7 +5,6 @@ import com.contagion.map.Position;
 import com.contagion.tiles.Drawable;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -68,8 +67,9 @@ public abstract class Shop implements Drawable {
         return id;
     }
 
+    //allow at minimum 1 client
     public void lockdown() {
-        actualCapacity = (int) (maxClientCapacity * 0.25);
+        actualCapacity = Math.max(1, (int) (maxClientCapacity * 0.25));
     }
 
     public void endLockdown() {

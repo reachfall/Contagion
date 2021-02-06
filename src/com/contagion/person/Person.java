@@ -1,38 +1,40 @@
 package com.contagion.person;
 
+import com.contagion.control.*;
 import com.contagion.map.Map;
 import com.contagion.map.Position;
-import com.contagion.control.ScheduledExecution;
 import com.contagion.tiles.Movable;
+import javafx.beans.property.*;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Phaser;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 public abstract class Person implements Runnable, Movable {
 
-    protected String name;
-    protected String surname;
-    protected String id;
-    protected boolean isSick;
-    protected boolean isVaccinated;
+    protected final String name;
+    protected final String surname;
+    protected final UUID id;
+    protected BooleanProperty isSick = new SimpleBooleanProperty();
+    protected BooleanProperty isVaccinated = new SimpleBooleanProperty();
     protected Position position;
     protected Position lastPosition;
+    protected final int noShopToVisitToGetCured;
     protected int visitedShopsCounter;
-    protected final Phaser phaser;
-    protected ArrayList<String> instructions = new ArrayList<>();
+    protected List<String> instructions = new ArrayList<>();
 
-    public Person(String name, String surname, String id, Position position, Phaser phaser) {
+    public Person(String name, String surname, Position position) {
         this.name = name;
         this.surname = surname;
-        this.id = id;
+        this.id = UUID.randomUUID();
         this.position = position;
-        this.lastPosition = position;
         this.instructions.add("wait");
-        this.phaser = phaser;
-        phaser.register();
-        ScheduledExecution.getInstance().scheduleAtFixedRate(this::run, 0, 10, TimeUnit.MILLISECONDS);
+        this.noShopToVisitToGetCured = Randomize.INSTANCE.randomNumberGenerator(3, 6);
+        this.visitedShopsCounter = 0;
+        PandemicControl.INSTANCE.addPerson();
+        Storage.INSTANCE.addPersonToFutureMap(this, ScheduledExecution.getInstance().scheduleAtFixedRate(this::run, 0, 10, TimeUnit.MILLISECONDS));
+        PhaserExecution.getInstance().register();
     }
 
     @Override
@@ -40,56 +42,31 @@ public abstract class Person implements Runnable, Movable {
         this.position = position;
     }
 
-    @Override
-    public void setLastPosition(Position lastPosition) {
-        this.lastPosition = lastPosition;
-    }
-
-//    @Override
-//    public String toString() {
-//        return "Person{" +
-//                "name='" + name + '\'' +
-//                ", surname='" + surname + '\'' +
-//                ", id='" + id + '\'' +
-//                ", isSick=" + isSick +
-//                ", isVaccinated=" + isVaccinated +
-//                ", isMasked=" + isMasked +
-//                ", position=" + position +
-//                ", lastPosition=" + lastPosition +
-//                ", visitedShopsCounter=" + visitedShopsCounter +
-//                ", instructions=" + getFirstInstruction() +
-//                '}';
-//    }
-
-    @Override
-    public String toString() {
-        return "Person{" +
-                ", position=" + position +
-                ", lastPosition=" + lastPosition +
-                ", position type=" + Map.getInstance().getPostionType(position) +
-                ", instructions=" + getFirstInstruction() +
-                ", id=" + id +
-                '}';
-    }
-
-    public String getFirstInstruction(){
-        if(instructions.isEmpty()){
-            return null;
-        } else {
-            return instructions.get(0);
+    public void shopCuration() {
+        if (isSick.get()) {
+            visitedShopsCounter++;
+            if (visitedShopsCounter >= noShopToVisitToGetCured) {
+                isSick.set(false);
+                PandemicControl.INSTANCE.newRecovered();
+                visitedShopsCounter = 0;
+            }
         }
     }
 
     public void destroy() {
         try {
+            PandemicControl.INSTANCE.removePerson(this);
+            Map.getInstance().removeFromLocationToDrawable(this);
+            Storage.INSTANCE.removePersonToFutureMap(this);
             _destroy();
         } catch (Exception e) {
             ;
         } finally {
-            phaser.arriveAndDeregister();
+            PhaserExecution.getInstance().arriveAndDeregister();
         }
 
     }
+
     abstract protected void _destroy();
 
     @Override
@@ -98,16 +75,37 @@ public abstract class Person implements Runnable, Movable {
     }
 
     @Override
-    public Position getLastPosition() {
-        return lastPosition;
-    }
-
-    public boolean comparePositions(){
-        return lastPosition != position;
+    public boolean isSick() {
+        return isSick.get();
     }
 
     @Override
-    public boolean isSick(){
+    public void setSick() {
+        isSick.set(true);
+    }
+
+    @Override
+    public boolean isVaccinated() {
+        return isVaccinated.get();
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getSurname() {
+        return surname;
+    }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public BooleanProperty isSickProperty() {
         return isSick;
+    }
+
+    public BooleanProperty isVaccinatedProperty() {
+        return isVaccinated;
     }
 }

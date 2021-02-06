@@ -6,7 +6,8 @@ import javafx.fxml.FXML;
 import javafx.scene.layout.AnchorPane;
 
 public class SidePanelControl {
-    @FXML private AnchorPane display;
+    @FXML
+    private AnchorPane display;
 
     public void showClientsDetails(ActionEvent actionEvent) {
     }
@@ -26,7 +27,8 @@ public class SidePanelControl {
     public void showWholesaleDetails(ActionEvent actionEvent) {
     }
 
-    @FXML public void createAndAddMap() {
+    @FXML
+    public void createAndAddMap() {
         Map map = Map.getInstance();
         display.getChildren().add(map);
     }

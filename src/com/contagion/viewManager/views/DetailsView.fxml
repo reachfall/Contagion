@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<?import javafx.scene.control.cell.PropertyValueFactory?>
+<TabPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0"
+         prefWidth="600.0" tabClosingPolicy="UNAVAILABLE" xmlns:fx="http://javafx.com/fxml/1"
+         xmlns="http://javafx.com/javafx/11.0.1" fx:controller="com.contagion.viewManager.controllers.DetailsView">
+    <tabs>
+        <Tab text="Clients">
+            <TableView fx:id="clientTableView">
+                <columns>
+                    <TableColumn prefWidth="100" text="Name" fx:id="clientNameCol"/>
+                    <TableColumn prefWidth="100" text="Surname" fx:id="clientSurnameCol"/>
+                    <TableColumn prefWidth="250" style="-fx-alignment: center" text="Id" fx:id="clientIdCol"/>
+                    <TableColumn prefWidth="100" text="isSick" fx:id="clientIsSick"/>
+                    <TableColumn prefWidth="100" text="isVaccinated" fx:id="clientIsVaccinated"/>
+                </columns>
+            </TableView>
+        </Tab>
+        <Tab text="Suppliers">
+            <TableView fx:id="supplierTableView">
+                <columns>
+                    <TableColumn prefWidth="100" text="Name" fx:id="supplierNameCol"/>
+                    <TableColumn prefWidth="100" text="Surname" fx:id="supplierSurnameCol"/>
+                    <TableColumn prefWidth="250" style="-fx-alignment: center" text="Id" fx:id="supplierIdCol"/>
+                    <TableColumn prefWidth="100" text="isSick" fx:id="supplierIsSick"/>
+                    <TableColumn prefWidth="100" text="isVaccinated" fx:id="supplierIsVaccinated"/>
+                    <TableColumn prefWidth="100" text="Fuel level" fx:id="supplierFuelLevel"/>
+                </columns>
+            </TableView>
+        </Tab>
+        <Tab text="Retail shops">
+            <TableView fx:id="retailShopTableView">
+                <columns>
+                    <TableColumn prefWidth="100" text="Name" fx:id="retailShopNameCol"/>
+                    <TableColumn prefWidth="250" style="-fx-alignment: center" text="Id" fx:id="retailShopIdCol"/>
+                </columns>
+            </TableView>
+        </Tab>
+        <Tab text="Wholesale">
+            <TableView fx:id="wholesaleTableView">
+                <columns>
+                    <TableColumn prefWidth="100" text="Name" fx:id="wholesaleNameCol"/>
+                    <TableColumn prefWidth="250" style="-fx-alignment: center" text="Id" fx:id="wholesaleIdCol"/>
+                </columns>
+            </TableView>
+        </Tab>
+        <Tab text="Products">
+            <TableView>
+                <columns>
+                    <TableColumn prefWidth="75.0" text="C1"/>
+                    <TableColumn prefWidth="75.0" text="C1"/>
+                </columns>
+            </TableView>
+        </Tab>
+    </tabs>
+</TabPane>
