@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<SplitPane dividerPositions="0.7558528428093646" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.contagion.viewManager.controllers.Simulation">
+  <items>
+    <AnchorPane fx:id="mapAnchorPane" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="0.0" minWidth="0.0" prefHeight="750.0" prefWidth="750.0" />
+    <AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="0.0" minWidth="0.0" prefHeight="750.0" prefWidth="250.0">
+         <children>
+            <VBox alignment="TOP_CENTER" layoutX="56.0" layoutY="175.0" prefHeight="598.0" prefWidth="242.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+               <children>
+                  <VBox alignment="BOTTOM_CENTER" prefHeight="250.0">
+                     <padding>
+                        <Insets bottom="20.0" />
+                     </padding>
+                  </VBox>
+                  <VBox alignment="CENTER" prefHeight="250.0">
+                     <children>
+                        <Label fx:id="lockdownFactorLabel" text="Lockdown factor: 0,40">
+                           <VBox.margin>
+                              <Insets bottom="5.0" top="10.0" />
+                           </VBox.margin></Label>
+                        <Slider fx:id="lockdownFactorSlider" blockIncrement="0.05" max="1.0" value="0.4" />
+                        <Label fx:id="infectionRateLabel" text="Passive infection rate: 0,005">
+                           <VBox.margin>
+                              <Insets bottom="5.0" top="10.0" />
+                           </VBox.margin>
+                        </Label>
+                        <Slider fx:id="infectionRateSlider" blockIncrement="0.005" max="0.05" value="0.005" />
+                        <Label fx:id="transmissionRateLabel" text="Transmission rate: 0,05">
+                           <VBox.margin>
+                              <Insets bottom="5.0" top="10.0" />
+                           </VBox.margin>
+                        </Label>
+                        <Slider fx:id="transmissionRateSlider" blockIncrement="0.05" max="1.0" value="0.05">
+                        </Slider>
+                        <Label fx:id="maskTransmissionRateLabel" text="Mask transmission rate: 0,20">
+                           <VBox.margin>
+                              <Insets bottom="5.0" top="10.0" />
+                           </VBox.margin>
+                        </Label>
+                        <Slider fx:id="maskTransmissionRateSlider" blockIncrement="0.05" max="1.0" value="0.2" />
+                        <Label fx:id="vaccineEfficacyLabel" text="Vaccine efficacy: 0,15">
+                           <VBox.margin>
+                              <Insets bottom="5.0" top="10.0" />
+                           </VBox.margin>
+                        </Label>
+                        <Slider fx:id="vaccineEfficacySlider" blockIncrement="0.05" max="1.05" value="0.2" />
+                        <Button fx:id="resetCoefficients" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" prefWidth="200.0" text="Set to default">
+                           <VBox.margin>
+                              <Insets top="15.0" />
+                           </VBox.margin>
+                        </Button>
+                     </children>
+                  </VBox>
+                  <VBox alignment="BOTTOM_CENTER" prefHeight="250.0">
+                     <children>
+                        <Button fx:id="addClient" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" prefWidth="200.0" text="Add client">
+                           <VBox.margin>
+                              <Insets bottom="15.0" />
+                           </VBox.margin>
+                        </Button>
+                        <Button fx:id="addSupplier" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" prefWidth="200.0" text="Add supplier">
+                           <VBox.margin>
+                              <Insets bottom="15.0" />
+                           </VBox.margin>
+                        </Button>
+                        <Button fx:id="displayDetails" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" prefWidth="200.0" text="Display details" />
+                     </children>
+                     <padding>
+                        <Insets bottom="20.0" />
+                     </padding>
+                  </VBox>
+               </children>
+               <padding>
+                  <Insets left="20.0" right="20.0" />
+               </padding>
+            </VBox>
+         </children></AnchorPane>
+  </items>
+</SplitPane>

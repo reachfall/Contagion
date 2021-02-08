@@ -1,22 +1,22 @@
 package com.contagion.shop;
 
 import com.contagion.map.Position;
-import com.contagion.tiles.Drawable;
+import com.contagion.tiles.DrawableShop;
 import com.contagion.tiles.DrawableType;
 
-public class RetailShop extends Shop implements Drawable {
+public class RetailShop extends Shop implements DrawableShop {
     public RetailShop(String name, Position position, int maxClientCapacity, int storageCapacity) {
-        super(name, position, maxClientCapacity, storageCapacity);
+        super("(R) " + name, position, maxClientCapacity, storageCapacity);
     }
 
-    public void receivePackage(Package receivedPackage) {
+    public boolean receivePackage(Package receivedPackage) {
         synchronized (currentSupplyMonitor) {
-            for (int i = 0; i < receivedPackage.getProductList().size(); i++) {
-                if (currentSupply.size() < storageCapacity) {
-                    currentSupply.addAll(receivedPackage.getProductList());
-                } else {
-                    break;
-                }
+            if (receivedPackage.getPackageSize() + currentSupply.size() <= storageCapacity) {
+                supplyOccupancy.setValue((double)(currentSupply.size() + receivedPackage.getPackageSize()) / storageCapacity);
+                currentSupply.addAll(receivedPackage.getProductList());
+                return true;
+            } else {
+                return false;
             }
         }
     }

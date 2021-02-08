@@ -1,56 +1,88 @@
 package com.contagion.control;
 
 import com.contagion.tiles.Movable;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.SimpleBooleanProperty;
+import javafx.scene.paint.Color;
+
+import java.util.List;
 
 public enum PandemicControl {
     INSTANCE;
     private int numberOfInfected = 0;
     private int numberOfPeople = 0;
-    private double lockdownFactor = 0.25;
-    private boolean lockdown = false;
+    private final BooleanProperty lockdown = new SimpleBooleanProperty(false);
+
     private final Object pandemicControlMonitor = new Object();
 
-    //probability of getting sick even when there are no sick people around
-    private double initialSicknessProbability = 0.005;
+    public static final double LOCKDOWN_FACTOR = 0.4;
+    private double lockdownFactor = LOCKDOWN_FACTOR;
 
-    //probability of getting sick from sick person
-    private double sicknessSpreadProbability = 0.05;
+    public static final double PASSIVE_INFECTION_RATE_DEFAULT = 0.005;
+    private double passiveInfectionRate = PASSIVE_INFECTION_RATE_DEFAULT;
 
-    //probability of vaccine preventing getting sick
-    private double vaccineProtectionProbability = 0.15;
+    public static final double TRANSMISSION_RATE_DEFAULT = 0.05;
+    private double transmissionRate = TRANSMISSION_RATE_DEFAULT;
 
-    //suppliers have lowered infection probability by given ratio
-    private double supplierViralSecurityRatio = 2;
+    public static final double MASK_TRANSMISSION_FACTOR = 0.2;
+    private double maskTransmissionFactor = MASK_TRANSMISSION_FACTOR;
 
-    public double getInitialSicknessProbability() {
-        return initialSicknessProbability;
+    public static final double VACCINE_EFFICACY_DEFAULT = 0.15;
+    private double vaccineEfficacy = VACCINE_EFFICACY_DEFAULT;
+
+
+    public void setLockdownFactor(double lockdownFactor) {
+        synchronized (pandemicControlMonitor) {
+            this.lockdownFactor = lockdownFactor;
+        }
     }
 
-    public double getSicknessSpreadProbability() {
-        return sicknessSpreadProbability;
+    public void setPassiveInfectionRate(double passiveInfectionRate) {
+        synchronized (pandemicControlMonitor) {
+            this.passiveInfectionRate = passiveInfectionRate;
+        }
     }
 
-    public double getVaccineProtectionProbability() {
-        return vaccineProtectionProbability;
+    public void setTransmissionRate(double transmissionRate) {
+        synchronized (pandemicControlMonitor) {
+            this.transmissionRate = transmissionRate;
+        }
     }
 
-    public double getSupplierViralSecurityRatio() {
-        return supplierViralSecurityRatio;
+    public void setMaskTransmissionFactor(double maskTransmissionFactor) {
+        synchronized (pandemicControlMonitor) {
+            this.maskTransmissionFactor = maskTransmissionFactor;
+        }
+    }
+
+    public void setVaccineEfficacy(double vaccineEfficacy) {
+        synchronized (pandemicControlMonitor) {
+            this.vaccineEfficacy = vaccineEfficacy;
+        }
+    }
+
+
+    public void resetCoefficients() {
+        synchronized (pandemicControlMonitor) {
+            lockdownFactor = LOCKDOWN_FACTOR;
+            passiveInfectionRate = PASSIVE_INFECTION_RATE_DEFAULT;
+            transmissionRate = TRANSMISSION_RATE_DEFAULT;
+            maskTransmissionFactor = MASK_TRANSMISSION_FACTOR;
+            vaccineEfficacy = VACCINE_EFFICACY_DEFAULT;
+        }
     }
 
     public void newRecovered() {
-        numberOfInfected--;
+        synchronized (pandemicControlMonitor) {
+            numberOfInfected--;
+        }
     }
 
     public void setLockdown(int infected) {
         synchronized (pandemicControlMonitor) {
             numberOfInfected += infected;
-            if (numberOfInfected >= numberOfPeople * lockdownFactor) {
-                lockdown = true;
-            } else {
-                lockdown = false;
-            }
-            Storage.INSTANCE.setAllShopsCapacity(lockdown);
+            lockdown.set(numberOfInfected > numberOfPeople * (1 - lockdownFactor));
+            Storage.INSTANCE.setAllShopsCapacity(lockdown.getValue());
         }
     }
 
@@ -67,6 +99,34 @@ public enum PandemicControl {
                 numberOfInfected--;
             }
         }
+    }
 
+    public int evaluateEntitiesForDisease(List<Movable> entitiesOnPosition, int infected) {
+        synchronized (pandemicControlMonitor) {
+            double infectionProbability = passiveInfectionRate;
+
+            for (Movable entity : entitiesOnPosition) {
+                if (entity.isSick()) {
+                    infectionProbability += entity.isMasked() ? transmissionRate * (1 - maskTransmissionFactor) : transmissionRate;
+                }
+            }
+
+            for (Movable entity : entitiesOnPosition) {
+
+                if (!entity.isSick()) {
+                    double probability = entity.isVaccinated() ? infectionProbability - vaccineEfficacy : infectionProbability;
+                    if (probability > Math.random()) {
+                        entity.setSick();
+                        infected++;
+                    }
+                }
+            }
+            return infected;
+        }
+    }
+
+    //TODO
+    public BooleanProperty lockdownProperty() {
+        return lockdown;
     }
 }

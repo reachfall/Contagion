@@ -1,9 +1,9 @@
 package com.contagion.shop;
 
-import com.contagion.control.Randomize;
 import com.contagion.control.ScheduledExecution;
+import com.contagion.control.Storage;
 import com.contagion.map.Position;
-import com.contagion.tiles.Drawable;
+import com.contagion.tiles.DrawableShop;
 import com.contagion.tiles.DrawableType;
 
 import java.util.ArrayList;
@@ -11,11 +11,11 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-public class Wholesale extends Shop implements Runnable, Drawable {
+public class Wholesale extends Shop implements Runnable, DrawableShop {
 
     public Wholesale(String name, Position position, int maxClientCapacity, int storageCapacity) {
-        super(name, position, maxClientCapacity, storageCapacity);
-        ScheduledExecution.getInstance().scheduleAtFixedRate(this::run, 0, 10, TimeUnit.MILLISECONDS);
+        super("(W) " + name, position, maxClientCapacity, storageCapacity);
+        ScheduledExecution.getInstance().scheduleAtFixedRate(this, 0, 100, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -30,24 +30,29 @@ public class Wholesale extends Shop implements Runnable, Drawable {
     public void createProduct() {
         synchronized (currentSupplyMonitor) {
             if (currentSupply.size() < storageCapacity) {
-                currentSupply.add(Randomize.INSTANCE.createProduct());
+                supplyOccupancy.setValue((double) (currentSupply.size() + 1) / storageCapacity);
+                currentSupply.add(Storage.INSTANCE.createProduct(name));
             }
         }
     }
 
-    public Package createPackage(UUID targetShop) {
+    public Package createPackage(Shop targetShop) {
         List<Product> listOfProducts = new ArrayList<>();
         synchronized (currentSupplyMonitor) {
             if (currentSupply.isEmpty()) {
-                listOfProducts.add(Randomize.INSTANCE.createProduct());
+                Product product = Storage.INSTANCE.createProduct(name);
+                product.setTo(targetShop.getName());
+                listOfProducts.add(product);
             } else {
-                int nPackages = Randomize.INSTANCE.randomNumberGenerator(1, Math.min(5, currentSupply.size()));
+                int nPackages = Storage.INSTANCE.randomNumberGenerator(1, Math.min(5, currentSupply.size()));
                 for (int i = 0; i < nPackages; i++) {
-                    listOfProducts.add(getRandomProduct());
+                    Product product = getRandomProduct();
+                    product.setTo(targetShop.getName());
+                    listOfProducts.add(product);
                 }
             }
         }
-        return new Package(listOfProducts, id, targetShop);
+        return new Package(listOfProducts, id, targetShop.getId());
     }
 
     @Override

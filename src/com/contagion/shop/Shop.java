@@ -1,20 +1,23 @@
 package com.contagion.shop;
 
-import com.contagion.control.Randomize;
+import com.contagion.control.Storage;
 import com.contagion.map.Position;
-import com.contagion.tiles.Drawable;
+import com.contagion.tiles.DrawableShop;
+import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.SimpleDoubleProperty;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public abstract class Shop implements Drawable {
+public abstract class Shop implements DrawableShop {
     protected final String name;
     protected final UUID id;
     protected final Position position;
     protected final int maxClientCapacity;
     protected int actualCapacity;
     protected final List<Product> currentSupply;
+    protected DoubleProperty supplyOccupancy;
     protected final Object currentSupplyMonitor;
     protected final int storageCapacity;
 
@@ -26,6 +29,7 @@ public abstract class Shop implements Drawable {
         this.actualCapacity = maxClientCapacity;
         this.storageCapacity = storageCapacity;
         this.currentSupply = new ArrayList<>();
+        this.supplyOccupancy = new SimpleDoubleProperty(0);
         this.currentSupplyMonitor = new Object();
     }
 
@@ -46,7 +50,8 @@ public abstract class Shop implements Drawable {
             if (currentSupply.isEmpty()) {
                 return null;
             } else {
-                return currentSupply.remove(Randomize.INSTANCE.randomNumberGenerator(0, currentSupply.size() - 1));
+                supplyOccupancy.setValue((double)(currentSupply.size() - 1) / storageCapacity);
+                return currentSupply.remove(Storage.INSTANCE.randomNumberGenerator(0, currentSupply.size() - 1));
             }
         }
     }
@@ -74,5 +79,9 @@ public abstract class Shop implements Drawable {
 
     public void endLockdown() {
         actualCapacity = maxClientCapacity;
+    }
+
+    public DoubleProperty supplyOccupancyProperty() {
+        return supplyOccupancy;
     }
 }

@@ -3,6 +3,7 @@ package com.contagion.tiles;
 import com.contagion.map.Position;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface Movable extends Drawable {
     Position getPosition();
@@ -10,6 +11,8 @@ public interface Movable extends Drawable {
     boolean isSick();
     void setSick();
     boolean isVaccinated();
+    boolean isMasked();
+    UUID getId();
 
-    boolean isSpecialPositionOccupied(Drawable stationaryObjectInNewPosition, List<Movable> entitiesOnNextPosition, Position position);
+    boolean isSpecialPositionOccupied(DrawableType stationaryObjectInNewPosition, List<Movable> entitiesOnNextPosition, Position position);
 }

@@ -17,4 +17,8 @@ public class Package {
     public List<Product> getProductList() {
         return productList;
     }
+
+    public int getPackageSize(){
+        return productList.size();
+    }
 }

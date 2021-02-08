@@ -3,28 +3,39 @@ package com.contagion.person;
 import com.contagion.control.PhaserExecution;
 import com.contagion.control.ScheduledExecution;
 import com.contagion.control.Storage;
+import com.contagion.map.Map;
+import com.contagion.map.Position;
 import com.contagion.pathfinding.Pathfinder;
 import com.contagion.shop.Product;
 import com.contagion.shop.Shop;
-import com.contagion.tiles.Drawable;
 import com.contagion.tiles.DrawableType;
-import com.contagion.map.Map;
-import com.contagion.map.Position;
 import com.contagion.tiles.Movable;
+import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.SimpleDoubleProperty;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class Client extends Person {
-
     private final int cartCapacity;
-    private final ArrayList<Product> productsInCart;
-    private String nextShop;
+    private final ObservableList<Product> productsInCart;
+    private final DoubleProperty cartOccupancy;
+    private final StringProperty nextShop;
 
-    public Client(String name, String surname, Position position, int cartCapacity) {
-        super(name, surname, position);
+    public Client(String name, String surname, Position position, int noShopToVisitToGetCured, int cartCapacity) {
+        super(name, surname, position, noShopToVisitToGetCured);
         this.cartCapacity = cartCapacity;
-        this.productsInCart = new ArrayList<>();
+        this.productsInCart = FXCollections.observableArrayList();
+        this.cartOccupancy = new SimpleDoubleProperty(0);
+        this.nextShop = new SimpleStringProperty("");
+        Storage.INSTANCE.addPersonToFutureMap(this, ScheduledExecution.getInstance().scheduleAtFixedRate(this, 0, 10, TimeUnit.MILLISECONDS));
+        PhaserExecution.getInstance().register();
     }
 
     @Override
@@ -34,7 +45,7 @@ public class Client extends Person {
             interpretInstructions();
         } catch (Exception e) {
             System.err.println("Exception in client " + this.toString());
-            System.err.println(e.getStackTrace());
+            System.err.println(Arrays.toString(e.getStackTrace()));
         } finally {
             PhaserExecution.getInstance().arriveAndAwaitAdvance();
         }
@@ -64,9 +75,9 @@ public class Client extends Person {
     }
 
     public void findWayToShop() {
-        if (instructions.isEmpty()){
+        if (instructions.isEmpty()) {
             Shop shop = Storage.INSTANCE.getAllShops().get(randomPick(Storage.INSTANCE.getAllShops().size() - 1));
-            nextShop = shop.getName();
+            nextShop.set(shop.getName());
             ArrayList<String> newInstructionsQueue = Pathfinder.findPath(position, shop.getPosition(), this.getObjectType());
             if (newInstructionsQueue == null) {
                 throw new NullPointerException("Can't find path");
@@ -88,13 +99,17 @@ public class Client extends Person {
                 instructions.remove(0);
                 break;
             case "eat":
-                productsInCart.remove(productsInCart.size() - 1);
+                Product rmProduct = productsInCart.remove(productsInCart.size() - 1);
+                rmProduct.setExists(false);
+                cartOccupancy.setValue((double) productsInCart.size() / cartCapacity);
                 instructions.remove(0);
                 break;
             case "buy":
-                Product product = Storage.INSTANCE.getShopOnPosition(position).getRandomProduct();
-                if (product != null) {
-                    productsInCart.add(product);
+                Product addProduct = Storage.INSTANCE.getShopOnPosition(position).getRandomProduct();
+                if (addProduct != null) {
+                    addProduct.setBoughtBy(id.toString());
+                    productsInCart.add(addProduct);
+                    cartOccupancy.setValue((double) productsInCart.size() / cartCapacity);
                     instructions.remove(0);
                 }
                 break;
@@ -124,17 +139,25 @@ public class Client extends Person {
     }
 
     @Override
-    public boolean isSpecialPositionOccupied(Drawable stationaryObjectInNewPosition, List<Movable> entitiesOnNextPosition, Position position) {
+    public boolean isSpecialPositionOccupied(DrawableType stationaryObjectInNewPosition, List<Movable> entitiesOnNextPosition, Position position) {
         long clientsOnPosition = entitiesOnNextPosition.stream().filter(o -> o.getObjectType() == DrawableType.Client).count();
 
-        return (stationaryObjectInNewPosition.getObjectType() == DrawableType.SidewalkIntersection && !entitiesOnNextPosition.isEmpty()) ||
-                ((stationaryObjectInNewPosition.getObjectType() == DrawableType.RetailShop ||
-                        stationaryObjectInNewPosition.getObjectType() == DrawableType.Wholesale)
+        return (stationaryObjectInNewPosition == DrawableType.SidewalkIntersection && !entitiesOnNextPosition.isEmpty()) ||
+                ((stationaryObjectInNewPosition == DrawableType.RetailShop ||
+                        stationaryObjectInNewPosition == DrawableType.Wholesale)
                         && clientsOnPosition >= Storage.INSTANCE.getShopOnPosition(position).getActualCapacity());
     }
 
     @Override
     protected void _destroy() {
         Storage.INSTANCE.removeClient(this);
+    }
+
+    public StringProperty nextShopProperty() {
+        return nextShop;
+    }
+
+    public DoubleProperty cartOccupancyProperty() {
+        return cartOccupancy;
     }
 }

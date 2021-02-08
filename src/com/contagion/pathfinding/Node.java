@@ -67,7 +67,7 @@ public class Node implements Comparable<Node> {
 
     @Override
     public int compareTo(Node o) {
-        return this.getfScore() > o.getfScore() ? 1 : this.getfScore() < o.getfScore() ? -1 : 0;
+        return Integer.compare(this.getfScore(), o.getfScore());
     }
 
     @Override

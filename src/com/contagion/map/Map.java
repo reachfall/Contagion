@@ -1,21 +1,13 @@
 package com.contagion.map;
 
 import com.contagion.control.*;
-import com.contagion.infrastructure.*;
-import com.contagion.person.Client;
-import com.contagion.person.Supplier;
-import com.contagion.shop.RetailShop;
-import com.contagion.shop.Shop;
-import com.contagion.shop.Wholesale;
 import com.contagion.tiles.Drawable;
+import com.contagion.tiles.DrawableShop;
 import com.contagion.tiles.DrawableType;
 import com.contagion.tiles.Movable;
-import javafx.collections.ObservableList;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.control.Button;
 import javafx.scene.layout.AnchorPane;
-import javafx.scene.layout.HBox;
 import javafx.scene.paint.Color;
 import javafx.scene.transform.Affine;
 import org.w3c.dom.Document;
@@ -27,7 +19,6 @@ import org.xml.sax.SAXException;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import java.awt.*;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
@@ -41,19 +32,20 @@ public class Map extends AnchorPane implements Runnable {
     private int[][][] tileMapValues;
     private int width;
     private int height;
-    private int tileWidth;
-    private int tileHeight;
     private int layers;
-    private GraphicsContext gObjLayer;
-    private final int canvasHeight;
+    private GraphicsContext entityLayer;
+    private GraphicsContext shopLayer;
+    private final int mapCanvasSize;
+    private UUID trackedMovable;
+    private final Object trackedShopMonitor = new Object();
 
-    private HashMap<Position, List<Movable>> locationToDrawable = new HashMap<>(0);
-    Object locationToDrawableMonitor = new Object();
+    private final HashMap<Position, List<Movable>> locationToDrawable = new HashMap<>(0);
+    final Object locationToDrawableMonitor = new Object();
 
-    private HashMap<Position, Drawable> locationToStationaryDrawable = new HashMap<>(0);
+    private final HashMap<Position, DrawableType> locationToStationaryDrawable = new HashMap<>(0);
 
     public DrawableType getPositionType(Position position) {
-        return locationToStationaryDrawable.get(position).getObjectType();
+        return locationToStationaryDrawable.get(position);
     }
 
     public void removeFromLocationToDrawable(Movable entity) {
@@ -65,60 +57,16 @@ public class Map extends AnchorPane implements Runnable {
     }
 
     private Map() {
+        mapCanvasSize = 750;
         System.out.println("Tworzenie mapy...");
-
-        Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
-        canvasHeight = dim.height - 30;
         readXML("/Users/doot/Desktop/Contagion/res/tile/tilemap.xml");
         prepareCanvases();
         drawLayers();
 
-        Button client = new Button();
-        client.setText("Add client");
-        client.setOnAction(actionEvent -> createClientHorde());
-
-        Button supplier = new Button();
-        supplier.setText("Add supplier");
-        supplier.setOnAction(actionEvent -> createSupplierHorde());
-
-        Button removeClient = new Button();
-        removeClient.setText("Remove client");
-        removeClient.setOnAction(actionEvent -> Storage.INSTANCE.getClients().get(0).destroy());
-
-        HBox hBox = new HBox();
-        hBox.getChildren().add(client);
-        hBox.getChildren().add(supplier);
-        hBox.getChildren().add(removeClient);
-        this.getChildren().add(hBox);
-
-        ScheduledExecution.getInstance().scheduleAtFixedRate(this::run, 0, 100, TimeUnit.MILLISECONDS);
-    }
-
-    public void createClientHorde() {
-        for (int i = 0; i < 10; i++) {
-            Storage.INSTANCE.addClient(new Client("aaa", "aaa", new Position(7, 5), 10));
-        }
-    }
-
-    public void createSupplierHorde() {
-        List retailShops = Storage.INSTANCE.getRetailShops();
-        List wholesales = Storage.INSTANCE.getWholesales();
-
-        for (int i = 0; i < 10; i++) {
-            List<Shop> shops = new ArrayList<>(Randomize.INSTANCE.sample(wholesales, Randomize.INSTANCE.randomNumberGenerator(1, wholesales.size() - 1)));
-            shops.addAll(Randomize.INSTANCE.sample(retailShops, Randomize.INSTANCE.randomNumberGenerator(1, retailShops.size() - 1)));
-
-            Storage.INSTANCE.addSupplier(new Supplier("aaa", "aaa", new Position(7, 8), shops));
-        }
-    }
-
-    public HashMap<Position, Drawable> getLocationToStationaryDrawable() {
-        return locationToStationaryDrawable;
+        ScheduledExecution.getInstance().scheduleAtFixedRate(this, 0, 100, TimeUnit.MILLISECONDS);
     }
 
     public void readXML(String path) {
-
-        String imagePath;
 
         try {
             DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
@@ -130,9 +78,6 @@ public class Map extends AnchorPane implements Runnable {
             Node node = list.item(0);
             Element eElement = (Element) node;
 
-            imagePath = eElement.getAttribute("name");
-            tileWidth = Integer.parseInt(eElement.getAttribute("tilewidth"));
-            tileHeight = Integer.parseInt(eElement.getAttribute("tileheight"));
             width = Integer.parseInt(eElement.getAttribute("width"));
             height = Integer.parseInt(eElement.getAttribute("height"));
 
@@ -147,94 +92,67 @@ public class Map extends AnchorPane implements Runnable {
                 eElement = (Element) node;
                 tileMapStrArr = eElement.getElementsByTagName("data").item(0).getTextContent().replaceAll("\\s+", "").split(",");
 
-                Storage storage = Storage.INSTANCE;
-
                 for (int y = 0; y < height; y++) {
                     for (int x = 0; x < width; x++) {
                         tileMapValues[i][y][x] = Integer.parseInt(tileMapStrArr[y * width + x]);
+                        Position position = new Position(x, y);
 
                         switch (tileMapValues[i][y][x]) {
-                            case 2:
-                                locationToStationaryDrawable.put(new Position(x, y), new Road());
-                                break;
-                            case 3:
-                                locationToStationaryDrawable.put(new Position(x, y), new Intersection());
-                                break;
-                            case 4:
-                                locationToStationaryDrawable.put(new Position(x, y), new Sidewalk());
-                                break;
-                            case 5:
-                                locationToStationaryDrawable.put(new Position(x, y), new SidewalkIntersection());
-                                break;
-                            case 6:
-                                locationToStationaryDrawable.put(new Position(x, y), new Underpass());
-                                break;
-                            case 7:
-                                RetailShop retailShop = Randomize.INSTANCE.createRetailShop(new Position(x, y));
-                                locationToStationaryDrawable.put(retailShop.getPosition(), retailShop);
-                                storage.addRetailShop(retailShop);
-                                storage.addShop(retailShop);
-                                storage.addLocationToShop(retailShop.getPosition(), retailShop);
-                                break;
-                            case 8:
-                                Wholesale wholesale = Randomize.INSTANCE.createWholesale(new Position(x, y));
-                                locationToStationaryDrawable.put(wholesale.getPosition(), wholesale);
-                                storage.addWholesale(wholesale);
-                                storage.addShop(wholesale);
-                                storage.addLocationToShop(wholesale.getPosition(), wholesale);
-                                break;
+                            case 2 -> {
+                                locationToStationaryDrawable.put(position, DrawableType.Road);
+                                Storage.INSTANCE.addSupplierPossibleSpawnPoints(position);
+                            }
+                            case 3 -> locationToStationaryDrawable.put(position, DrawableType.Intersection);
+                            case 4 -> {
+                                locationToStationaryDrawable.put(position, DrawableType.Sidewalk);
+                                Storage.INSTANCE.addClientPossibleSpawnPoints(position);
+                            }
+                            case 5 -> locationToStationaryDrawable.put(position, DrawableType.SidewalkIntersection);
+                            case 6 -> locationToStationaryDrawable.put(position, DrawableType.Underpass);
+                            case 7 -> {
+                                Storage.INSTANCE.createRetailShop(position);
+                                locationToStationaryDrawable.put(position, DrawableType.RetailShop);
+                            }
+                            case 8 -> {
+                                Storage.INSTANCE.createWholesale(position);
+                                locationToStationaryDrawable.put(position, DrawableType.Wholesale);
+                            }
                         }
                     }
                 }
             }
-
-        } catch (ParserConfigurationException e) {
-            e.printStackTrace();
-        } catch (SAXException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
+        } catch (ParserConfigurationException | SAXException | IOException e) {
             e.printStackTrace();
         }
     }
 
     public void prepareCanvases() {
         for (int i = 0; i < layers + 1; i++) {
-            canvases.add(new Canvas(canvasHeight, canvasHeight));
+            canvases.add(new Canvas(mapCanvasSize, mapCanvasSize));
         }
         this.getChildren().addAll(canvases);
 
         affine = new Affine();
-        affine.appendScale(canvasHeight / width, canvasHeight / height);
+        affine.appendScale((double)mapCanvasSize / width, (double)mapCanvasSize / height);
     }
 
     public Color mapColor(int tileID) {
-//        1. Background
-//        2. Road
-//        3. Intersection
-//        4. Sidewalk
-//        5. Sidewalk intersection
-//        6. Underpass
-//        7. RetailShop
-//        8. Wholesale
-        switch (tileID) {
-            case 1:
-                return Color.web("000000");
-            case 2:
-            case 6:
-                return Color.web("fbf236");
-            case 3:
-                return Color.web("99e550");
-            case 4:
-                return Color.web("639bff");
-            case 5:
-                return Color.web("5fcde4");
-            case 7:
-                return Color.web("d95763");
-            case 8:
-                return Color.web("d77bba");
-            default:
-                return Color.WHITE;
-        }
+//        1. Background -- grey
+//        2. Road -- cyan
+//        3. Intersection -- cyan
+//        4. Sidewalk -- gold
+//        5. Sidewalk intersection -- gold
+//        6. Underpass -- cyan
+//        7. RetailShop -- light pink
+//        8. Wholesale -- dark pink
+        return switch (tileID) {
+            case 1 -> Color.web("333333");
+            case 2, 3, 6 -> Color.web("2FF3E0");
+            case 4, 5 -> Color.web("F8D210");
+            case 7 -> Color.web("D8A7B1");
+            case 8 -> Color.web("EF7C8E");
+            default -> Color.WHITE;
+        };
     }
 
     public void drawLayers() {
@@ -257,27 +175,34 @@ public class Map extends AnchorPane implements Runnable {
                 }
             }
         }
-        gObjLayer = canvases.get(canvases.size() - 2).getGraphicsContext2D();
-        gObjLayer.setTransform(affine);
+        entityLayer = canvases.get(canvases.size() - 2).getGraphicsContext2D();
+        shopLayer = canvases.get(canvases.size() - 1).getGraphicsContext2D();
+        entityLayer.setTransform(affine);
+        shopLayer.setTransform(affine);
     }
 
     public Color SpritePicker(Movable entity) {
-        if (entity.isSick()) {
-            return Color.LIGHTGREEN;
+        if (entity.getId().equals(trackedMovable)) {
+            return Color.BLACK;
         }
+
+        if (entity.isSick()) {
+            return Color.DARKGREEN;
+        }
+
         switch (entity.getObjectType()) {
             case Client -> {
-                return Color.WHITE;
+                return Color.web("FA26A0"); // -- intensive pink
             }
             case Supplier -> {
-                return Color.DARKBLUE;
+                return Color.web("F51720"); // -- chilli pepper
             }
         }
         return null;
     }
 
     public boolean moveToPosition(Movable entity, Position nextPosition) {
-        Drawable stationaryOnNNextPosition = locationToStationaryDrawable.get(nextPosition);
+        DrawableType stationaryOnNNextPosition = locationToStationaryDrawable.get(nextPosition);
 
         synchronized (locationToDrawableMonitor) {
             List<Movable> entitiesOnNextPosition = locationToDrawable.get(nextPosition);
@@ -307,11 +232,9 @@ public class Map extends AnchorPane implements Runnable {
 
     public void renderEntities() {
         synchronized (locationToDrawableMonitor) {
-            gObjLayer.clearRect(0, 0, width, height);
+            entityLayer.clearRect(0, 0, width, height);
 
-            Iterator<HashMap.Entry<Position, List<Movable>>> iter = locationToDrawable.entrySet().iterator();
-            while (iter.hasNext()) {
-                HashMap.Entry<Position, List<Movable>> entry = iter.next();
+            for (HashMap.Entry<Position, List<Movable>> entry : locationToDrawable.entrySet()) {
                 Position position = entry.getKey();
                 List<Movable> entitiesOnPosition = entry.getValue();
 
@@ -320,15 +243,15 @@ public class Map extends AnchorPane implements Runnable {
                     if (getPositionType(position) == DrawableType.Underpass) {
                         for (Movable entity : entitiesOnPosition) {
                             if (entity.getObjectType() == DrawableType.Supplier) {
-                                gObjLayer.setFill(SpritePicker(entity));
-                                gObjLayer.fillRect(entity.getPosition().getX(), entity.getPosition().getY(), 1, 1);
+                                entityLayer.setFill(SpritePicker(entity));
+                                entityLayer.fillRect(entity.getPosition().getX(), entity.getPosition().getY(), 1, 1);
                                 break;
                             }
                         }
                     } else {
                         Movable entity = entitiesOnPosition.get(0);
-                        gObjLayer.setFill(SpritePicker(entity));
-                        gObjLayer.fillRect(entity.getPosition().getX(), entity.getPosition().getY(), 1, 1);
+                        entityLayer.setFill(SpritePicker(entity));
+                        entityLayer.fillRect(entity.getPosition().getX(), entity.getPosition().getY(), 1, 1);
                     }
                 }
             }
@@ -347,6 +270,7 @@ public class Map extends AnchorPane implements Runnable {
         if (PhaserExecution.getInstance().getUnarrivedParties() == 1) {
             pandemicControl();
             renderEntities();
+            highlightShop();
             PhaserExecution.getInstance().arrive();
         }
     }
@@ -365,28 +289,51 @@ public class Map extends AnchorPane implements Runnable {
                     iter.remove();
                     continue;
                 }
-
-                // possibility of infection without infected 0.03
-                double infectionProbability = PandemicControl.INSTANCE.getInitialSicknessProbability();
-
-                for (Movable entity : entitiesOnPosition) {
-                    if (entity.isSick()) {
-                        infectionProbability += PandemicControl.INSTANCE.getSicknessSpreadProbability();
-                    }
-                }
-
-                for (Movable entity : entitiesOnPosition) {
-
-                    if (!entity.isSick()) {
-                        double probability = entity.isVaccinated() ? infectionProbability - PandemicControl.INSTANCE.getVaccineProtectionProbability() : infectionProbability;
-                        if ((entity.getObjectType() == DrawableType.Supplier ? probability / PandemicControl.INSTANCE.getSupplierViralSecurityRatio() : probability) > Math.random()) {
-                            entity.setSick();
-                            infected++;
-                        }
-                    }
-                }
+                infected = PandemicControl.INSTANCE.evaluateEntitiesForDisease(entitiesOnPosition, infected);
             }
         }
         PandemicControl.INSTANCE.setLockdown(infected);
+    }
+
+    public void setTrackedObject(Drawable o) {
+        if (o instanceof Movable) {
+            Movable entity = (Movable) o;
+            if (entity.getId().equals(this.trackedMovable)) {
+                this.trackedMovable = null;
+            } else {
+                this.trackedMovable = entity.getId();
+            }
+        } else if (o instanceof DrawableShop) {
+            synchronized (trackedShopMonitor) {
+                DrawableShop shop = (DrawableShop) o;
+                TrackedShop.INSTANCE.setDraw(true);
+                TrackedShop.INSTANCE.setLastPosition(TrackedShop.INSTANCE.getCurrentPosition());
+                TrackedShop.INSTANCE.setLastType(TrackedShop.INSTANCE.getCurrentType());
+                if (shop.getPosition().equals(TrackedShop.INSTANCE.getCurrentPosition())) {
+                    TrackedShop.INSTANCE.setCurrentPosition(null);
+                } else {
+                    TrackedShop.INSTANCE.setCurrentType(shop.getObjectType());
+                    TrackedShop.INSTANCE.setCurrentPosition(shop.getPosition());
+                }
+            }
+        }
+    }
+
+    //highlight given shop
+    private void highlightShop() {
+        synchronized (trackedShopMonitor) {
+            if (TrackedShop.INSTANCE.isDraw()) {
+                if (TrackedShop.INSTANCE.getLastPosition() != null) {
+                    shopLayer.setFill(mapColor(TrackedShop.INSTANCE.getLastType() == DrawableType.RetailShop ? 7 : 8));
+                    shopLayer.fillRect(TrackedShop.INSTANCE.getLastPosition().getX(), TrackedShop.INSTANCE.getLastPosition().getY(), 1, 1);
+                }
+
+                if (TrackedShop.INSTANCE.getCurrentPosition() != null) {
+                    shopLayer.setFill(Color.BLACK);
+                    shopLayer.fillRect(TrackedShop.INSTANCE.getCurrentPosition().getX(), TrackedShop.INSTANCE.getCurrentPosition().getY(), 1, 1);
+                }
+                TrackedShop.INSTANCE.setDraw(false);
+            }
+        }
     }
 }

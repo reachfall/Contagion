@@ -11,5 +11,5 @@ public enum DrawableType {
     SidewalkIntersection,
     Underpass,
     Background,
-    None;
+    None
 }

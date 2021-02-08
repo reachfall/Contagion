@@ -2,7 +2,6 @@ package com.contagion.pathfinding;
 
 import com.contagion.map.Position;
 import com.contagion.map.Map;
-import com.contagion.tiles.Drawable;
 import com.contagion.tiles.DrawableType;
 
 import java.util.*;
@@ -36,15 +35,15 @@ public class Pathfinder {
     }
 
     public static boolean isNotValidNode(Node node, DrawableType type) {
-        Drawable positionDrawable = Map.getInstance().getLocationToStationaryDrawable().get(node.getPosition());
+        DrawableType positionDrawable = Map.getInstance().getPositionType(node.getPosition());
         if (positionDrawable == null) {
             return true;
         }
 
         if (type == DrawableType.Client) {
-            return positionDrawable.getObjectType() == DrawableType.Intersection || positionDrawable.getObjectType() == DrawableType.Road;
+            return positionDrawable == DrawableType.Intersection || positionDrawable == DrawableType.Road;
         } else {
-            return positionDrawable.getObjectType() == DrawableType.SidewalkIntersection || positionDrawable.getObjectType() == DrawableType.Sidewalk;
+            return positionDrawable == DrawableType.SidewalkIntersection || positionDrawable== DrawableType.Sidewalk;
         }
 
     }

@@ -1,7 +1,6 @@
 package com.contagion.person;
 
 import com.contagion.control.PhaserExecution;
-import com.contagion.control.Randomize;
 import com.contagion.control.ScheduledExecution;
 import com.contagion.control.Storage;
 import com.contagion.map.Map;
@@ -12,25 +11,43 @@ import com.contagion.tiles.Drawable;
 import com.contagion.tiles.DrawableType;
 import com.contagion.map.Position;
 import com.contagion.tiles.Movable;
-import javafx.beans.property.IntegerProperty;
-import javafx.beans.property.SimpleIntegerProperty;
+import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.SimpleDoubleProperty;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 public class Supplier extends Person {
     private final List<Shop> shopsToVisit;
     private final HashMap<UUID, List<Package>> packageList;
+    private final List<Package> cachedPackages;
+    private final List<Shop> cachedRetailShops;
     private final int trunkCapacity;
-    private int currentLoad;
-    private IntegerProperty fuelLevel;
+    private final String companyName;
+    private int trunkFilled;
+    private final DoubleProperty trunkOccupancy;
+    private final int tankCapacity;
+    private int fuelLevel;
+    private final DoubleProperty tankOccupancy;
+    private RetailShop deliveryShop;
+    private Wholesale pickUpShop;
+    private int deliveryAttempts;
 
-    public Supplier(String name, String surname, Position position, List<Shop> shopsToVisit) {
-        super(name, surname, position);
+    public Supplier(String name, String surname, Position position, int noShopToVisitToGetCured, List<Shop> shopsToVisit, String companyName) {
+        super(name, surname, position, noShopToVisitToGetCured);
         this.shopsToVisit = new ArrayList<>(shopsToVisit);
+        this.companyName = companyName;
         this.packageList = new HashMap<>();
-        this.trunkCapacity = Randomize.INSTANCE.randomNumberGenerator(5, 10);
-        this.currentLoad = 0;
-        this.fuelLevel = new SimpleIntegerProperty((int) (Storage.INSTANCE.getLongestPath() * 1.1));
+        this.cachedPackages = new ArrayList<>();
+        this.cachedRetailShops = new ArrayList<>();
+        this.trunkCapacity = Storage.INSTANCE.randomNumberGenerator(10, 20);
+        this.trunkFilled = 0;
+        this.trunkOccupancy = new SimpleDoubleProperty(0);
+        this.tankCapacity = (int) (Storage.INSTANCE.getLongestPath() * 1.1);
+        this.fuelLevel = tankCapacity;
+        this.tankOccupancy = new SimpleDoubleProperty(this.fuelLevel);
+        Storage.INSTANCE.addPersonToFutureMap(this, ScheduledExecution.getInstance().scheduleAtFixedRate(this, 0, 10, TimeUnit.MILLISECONDS));
+        PhaserExecution.getInstance().register();
     }
 
     @Override
@@ -38,9 +55,10 @@ public class Supplier extends Person {
         try {
             nextShop();
             interpretInstructions();
+            tankOccupancy.set((double) fuelLevel / tankCapacity);
         } catch (Exception e) {
             System.err.println("Exception in supplier " + this.toString());
-            System.err.println(e.getStackTrace());
+            System.err.println(Arrays.toString(e.getStackTrace()));
         } finally {
             PhaserExecution.getInstance().arriveAndAwaitAdvance();
         }
@@ -65,58 +83,130 @@ public class Supplier extends Person {
         }
         instructions.addAll(newInstructionsQueue);
         if (shop.getObjectType() == DrawableType.RetailShop) {
-            instructions.add("deliverPackages");
+            instructions.add("deliverPackagesLogistics");
         } else {
-            instructions.add("pickUpPackages");
+            instructions.add("pickUpPackagesLogistics");
         }
     }
 
-    //adding new packages, one for each retail shop in shopsToVisit -- takes one move
-    public void pickUpPackages() {
-        Wholesale wholesale = (Wholesale) Storage.INSTANCE.getShopOnPosition(position);
+
+    public void pickUpPackagesLogistics() {
+        pickUpShop = (Wholesale) Storage.INSTANCE.getShopOnPosition(position);
         for (Shop shop : shopsToVisit) {
-            if (currentLoad < trunkCapacity) {
-                if (shop.getObjectType() == DrawableType.RetailShop) {
-                    Package newPackage = wholesale.createPackage(shop.getId());
-                    List<Package> packageList = this.packageList.get(shop.getId());
-                    if (packageList == null) {
-                        this.packageList.put(shop.getId(), new ArrayList<>(Arrays.asList(newPackage)));
-                    } else {
-                        packageList.add(newPackage);
-                    }
-                }
-            } else {
-                break;
+            if (shop.getObjectType() == DrawableType.RetailShop) {
+                cachedRetailShops.add(shop);
+            }
+        }
+
+        if (!cachedRetailShops.isEmpty()) {
+            for (int i = 0; i < cachedRetailShops.size(); i++) {
+                instructions.add("pickUpPackage");
             }
         }
         instructions.remove(0);
     }
 
-    //deliver package(s) to retail shop
-    public void deliverPackages() {
-        RetailShop retailShop = (RetailShop) Storage.INSTANCE.getShopOnPosition(position);
-        List<Package> packageList = this.packageList.get(retailShop.getId());
-        for (int i = 0; i < packageList.size(); i++) {
-            retailShop.receivePackage(packageList.remove(i));
+    public void pickUpPackage() {
+        if (cachedRetailShops.isEmpty()) {
+            instructions.clear();
+            cachedRetailShops.clear();
+            instructions.add("wait");
+        } else {
+            Shop destinationShop = cachedRetailShops.remove(0);
+            Package pack = pickUpShop.createPackage(destinationShop);
+            for (Product product : pack.getProductList()) {
+                product.setDeliveredBy(id.toString());
+            }
+
+            if (trunkFilled + pack.getPackageSize() <= trunkCapacity) {
+                trunkFilled += pack.getPackageSize();
+                List<Package> packageList = this.packageList.get(destinationShop.getId());
+                if (packageList == null) {
+                    this.packageList.put(destinationShop.getId(), new ArrayList<>(Arrays.asList(pack)));
+                } else {
+                    packageList.add(pack);
+                }
+            } else {
+                for (Product product : pack.getProductList()) {
+                    product.setDisposed(true);
+                    product.setExists(false);
+                }
+                instructions.clear();
+                cachedRetailShops.clear();
+            }
         }
+    }
+
+
+    public void deliverPackagesLogistics() {
+        deliveryShop = (RetailShop) Storage.INSTANCE.getShopOnPosition(position);
+        List<Package> combinedShopPackage = this.packageList.remove(deliveryShop.getId());
+        if (combinedShopPackage != null) {
+            for (int i = 0; i < combinedShopPackage.size(); i++) {
+                instructions.add("deliverPackage");
+            }
+            cachedPackages.addAll(combinedShopPackage);
+        }
+        //max 10 failed rounds before moving on
+        deliveryAttempts = 10;
         instructions.remove(0);
     }
 
+    public void deliverPackage() {
+        if (deliveryAttempts > 0) {
+            if (cachedPackages.isEmpty()) {
+                if (!instructions.isEmpty()) {
+                    instructions.clear();
+                }
+            } else {
+                Package pack = cachedPackages.get(0);
+                if (deliveryShop.receivePackage(pack)) {
+                    trunkFilled -= pack.getPackageSize();
+                    cachedPackages.remove(0);
+                } else {
+                    deliveryAttempts--;
+                }
+            }
+        } else {
+            for (Package pack : cachedPackages) {
+                trunkFilled -= pack.getPackageSize();
+            }
+            for (Package pack : cachedPackages) {
+                for (Product product : pack.getProductList()) {
+                    product.setDisposed(true);
+                    product.setExists(false);
+                }
+            }
+            cachedPackages.clear();
+            instructions.clear();
+        }
+    }
+
     public void fillTank() {
-        fuelLevel.set((int) (Storage.INSTANCE.getLongestPath() * 1.1));
+        fuelLevel = tankCapacity;
     }
 
     public void interpretInstructions() {
         switch (instructions.get(0)) {
-            case "pickUpPackages":
+            case "pickUpPackagesLogistics":
                 fillTank();
                 shopCuration();
-                pickUpPackages();
+                pickUpPackagesLogistics();
+                trunkOccupancy.set((double) trunkFilled / trunkCapacity);
                 break;
-            case "deliverPackages":
+            case "pickUpPackage":
+                pickUpPackage();
+                trunkOccupancy.set((double) trunkFilled / trunkCapacity);
+                break;
+            case "deliverPackagesLogistics":
                 fillTank();
                 shopCuration();
-                deliverPackages();
+                deliverPackagesLogistics();
+                trunkOccupancy.set((double) trunkFilled / trunkCapacity);
+                break;
+            case "deliverPackage":
+                deliverPackage();
+                trunkOccupancy.set((double) trunkFilled / trunkCapacity);
                 break;
             case "stop":
                 if (!shopsToVisit.isEmpty()) {
@@ -126,26 +216,26 @@ public class Supplier extends Person {
             case "up":
                 if (Map.getInstance().moveToPosition(this, new Position(position.getX(), position.getY() - 1))) {
                     instructions.remove(0);
-                    fuelLevel.setValue(fuelLevel.getValue() - 1);
+                    fuelLevel--;
                 }
                 break;
             case "down":
                 if (Map.getInstance().moveToPosition(this, new Position(position.getX(), position.getY() + 1))) {
                     instructions.remove(0);
-                    fuelLevel.setValue(fuelLevel.getValue() - 1);
+                    fuelLevel--;
                 }
                 break;
             case "left":
                 if (Map.getInstance().moveToPosition(this, new Position(position.getX() - 1, position.getY()))) {
                     instructions.remove(0);
-                    fuelLevel.setValue(fuelLevel.getValue() - 1);
+                    fuelLevel--;
 
                 }
                 break;
             case "right":
                 if (Map.getInstance().moveToPosition(this, new Position(position.getX() + 1, position.getY()))) {
                     instructions.remove(0);
-                    fuelLevel.setValue(fuelLevel.getValue() - 1);
+                    fuelLevel--;
 
                 }
                 break;
@@ -161,10 +251,10 @@ public class Supplier extends Person {
     }
 
     @Override
-    public boolean isSpecialPositionOccupied(Drawable stationaryObjectInNewPosition, List<Movable> entitiesOnNextPosition, Position position) {
-        if (stationaryObjectInNewPosition.getObjectType() == DrawableType.Intersection ||
-                stationaryObjectInNewPosition.getObjectType() == DrawableType.RetailShop ||
-                stationaryObjectInNewPosition.getObjectType() == DrawableType.Wholesale) {
+    public boolean isSpecialPositionOccupied(DrawableType stationaryObjectInNewPosition, List<Movable> entitiesOnNextPosition, Position position) {
+        if (stationaryObjectInNewPosition == DrawableType.Intersection ||
+                stationaryObjectInNewPosition == DrawableType.RetailShop ||
+                stationaryObjectInNewPosition == DrawableType.Wholesale) {
             for (Drawable e : entitiesOnNextPosition) {
                 if (e.getObjectType() == DrawableType.Supplier) {
                     return true;
@@ -179,7 +269,15 @@ public class Supplier extends Person {
         Storage.INSTANCE.removeSupplier(this);
     }
 
-    public IntegerProperty fuelLevelProperty() {
-        return fuelLevel;
+    public DoubleProperty trunkOccupancyProperty() {
+        return trunkOccupancy;
+    }
+
+    public DoubleProperty tankOccupancyProperty() {
+        return tankOccupancy;
+    }
+
+    public String getCompanyName() {
+        return companyName;
     }
 }

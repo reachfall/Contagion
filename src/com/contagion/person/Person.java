@@ -9,7 +9,6 @@ import javafx.beans.property.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 public abstract class Person implements Runnable, Movable {
 
@@ -17,24 +16,23 @@ public abstract class Person implements Runnable, Movable {
     protected final String surname;
     protected final UUID id;
     protected BooleanProperty isSick = new SimpleBooleanProperty();
-    protected BooleanProperty isVaccinated = new SimpleBooleanProperty();
+    protected BooleanProperty isVaccinated = new SimpleBooleanProperty(false);
+    protected BooleanProperty isMasked = new SimpleBooleanProperty(false);
     protected Position position;
     protected Position lastPosition;
     protected final int noShopToVisitToGetCured;
     protected int visitedShopsCounter;
     protected List<String> instructions = new ArrayList<>();
 
-    public Person(String name, String surname, Position position) {
+    public Person(String name, String surname, Position position, int noShopToVisitToGetCured) {
         this.name = name;
         this.surname = surname;
         this.id = UUID.randomUUID();
         this.position = position;
         this.instructions.add("wait");
-        this.noShopToVisitToGetCured = Randomize.INSTANCE.randomNumberGenerator(3, 6);
+        this.noShopToVisitToGetCured = noShopToVisitToGetCured;
         this.visitedShopsCounter = 0;
         PandemicControl.INSTANCE.addPerson();
-        Storage.INSTANCE.addPersonToFutureMap(this, ScheduledExecution.getInstance().scheduleAtFixedRate(this::run, 0, 10, TimeUnit.MILLISECONDS));
-        PhaserExecution.getInstance().register();
     }
 
     @Override
@@ -89,6 +87,11 @@ public abstract class Person implements Runnable, Movable {
         return isVaccinated.get();
     }
 
+    @Override
+    public boolean isMasked() {
+        return isMasked.get();
+    }
+
     public String getName() {
         return name;
     }
@@ -97,15 +100,19 @@ public abstract class Person implements Runnable, Movable {
         return surname;
     }
 
-    public UUID getId() {
-        return id;
-    }
-
     public BooleanProperty isSickProperty() {
         return isSick;
     }
 
     public BooleanProperty isVaccinatedProperty() {
         return isVaccinated;
+    }
+
+    public BooleanProperty isMaskedProperty() {
+        return isMasked;
+    }
+
+    public UUID getId() {
+        return id;
     }
 }
