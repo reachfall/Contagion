@@ -44,7 +44,6 @@ public class Main extends Application {
         VBox vbucks = simulationLoader.load();
         speed.setScene(new Scene(vbucks));
         speed.setResizable(false);
-        speed.setTitle("Set simulation speed");
         speed.show();
     }
 

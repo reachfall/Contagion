@@ -61,7 +61,7 @@ public class Map extends AnchorPane implements Runnable {
     private Map() {
         mapCanvasSize = 750;
         System.out.println("Tworzenie mapy...");
-        readXML("/Users/doot/Desktop/Contagion/res/tile/tilemap.xml");
+        readXML("src/com/contagion/resources/tilemap.xml");
         prepareCanvases();
         drawLayers();
 
