@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<VBox alignment="CENTER" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.contagion.viewManager.controllers.SetSpeed">
+   <children>
+      <Label text="Set simulation speed">
+         <VBox.margin>
+            <Insets bottom="20.0" />
+         </VBox.margin>
+         <font>
+            <Font size="14.0" />
+         </font>
+      </Label>
+      <Button fx:id="verySlow" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" prefWidth="150.0" text="Very slow" />
+      <Button fx:id="slow" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" prefWidth="150.0" text="Slow">
+         <VBox.margin>
+            <Insets top="5.0" />
+         </VBox.margin>
+      </Button>
+      <Button fx:id="medium" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" prefWidth="150.0" text="Medium">
+         <VBox.margin>
+            <Insets top="5.0" />
+         </VBox.margin>
+      </Button>
+      <Button fx:id="fast" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" prefWidth="150.0" text="Fast">
+         <VBox.margin>
+            <Insets top="5.0" />
+         </VBox.margin>
+      </Button>
+      <Button fx:id="veryFast" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" prefWidth="150.0" text="Very fast">
+         <VBox.margin>
+            <Insets top="5.0" />
+         </VBox.margin>
+      </Button>
+      <Button fx:id="tooFast" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" prefWidth="150.0" text="Too fast">
+         <VBox.margin>
+            <Insets top="5.0" />
+         </VBox.margin>
+      </Button>
+      <Button fx:id="ludicrousSpeed" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" prefWidth="150.0" text="Ludicrous speed">
+         <VBox.margin>
+            <Insets top="5.0" />
+         </VBox.margin>
+      </Button>
+   </children>
+   <padding>
+      <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
+   </padding>
+</VBox>

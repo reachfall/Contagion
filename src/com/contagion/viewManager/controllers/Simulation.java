@@ -1,11 +1,12 @@
 package com.contagion.viewManager.controllers;
 
 import com.contagion.control.PandemicControl;
+import com.contagion.control.PhaserExecution;
+import com.contagion.control.SpeedAndSpeedOnly;
 import com.contagion.control.Storage;
 import com.contagion.map.Map;
-import javafx.beans.property.BooleanProperty;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
@@ -20,6 +21,7 @@ import javafx.stage.Stage;
 import java.io.File;
 import java.net.URL;
 import java.util.ResourceBundle;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Simulation implements Initializable {
     @FXML
@@ -54,6 +56,10 @@ public class Simulation implements Initializable {
     private Button addSupplier;
     @FXML
     private Button displayDetails;
+    @FXML
+    private Button pauseButton;
+    @FXML
+    private Button resumeButton;
 
     private Stage detailsView;
 
@@ -143,6 +149,9 @@ public class Simulation implements Initializable {
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
+        pauseButton.setOnAction(actionEvent -> SpeedAndSpeedOnly.INSTANCE.setTimeControl(new AtomicBoolean(true)));
+        resumeButton.setOnAction(actionEvent -> SpeedAndSpeedOnly.INSTANCE.setTimeControl(new AtomicBoolean(false)));
+
         Map map = Map.getInstance();
         Storage.INSTANCE.findLongestPath();
         mapAnchorPane.getChildren().add(map);

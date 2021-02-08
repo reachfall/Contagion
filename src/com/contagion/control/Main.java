@@ -5,6 +5,7 @@ import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.scene.control.SplitPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 
@@ -37,15 +38,14 @@ public class Main extends Application {
 
     @Override
     public void start(Stage stage) throws Exception {
-        Stage simulation = new Stage();
-        URL simulationUrl = new File("src/com/contagion/viewManager/views/Simulation.fxml").toURI().toURL();
-        FXMLLoader simulationLoader = new FXMLLoader(simulationUrl);
-        SplitPane splitPane = simulationLoader.load();
-        simulation.setScene(new Scene(splitPane));
-        simulation.setResizable(false);
-        simulation.setTitle("Pandemic simulation");
-        simulation.setOnCloseRequest(windowEvent -> Platform.exit());
-        simulation.show();
+        Stage speed = new Stage();
+        URL speedUrl = new File("src/com/contagion/viewManager/views/SetSpeed.fxml").toURI().toURL();
+        FXMLLoader simulationLoader = new FXMLLoader(speedUrl);
+        VBox vbucks = simulationLoader.load();
+        speed.setScene(new Scene(vbucks));
+        speed.setResizable(false);
+        speed.setTitle("Set simulation speed");
+        speed.show();
     }
 
     @Override

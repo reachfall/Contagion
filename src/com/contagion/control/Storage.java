@@ -13,6 +13,7 @@ import com.contagion.tiles.DrawableType;
 import com.contagion.tiles.Movable;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.scene.control.Alert;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -31,6 +32,12 @@ public enum Storage {
     private final List<Position> clientPossibleSpawnPoints = new ArrayList<>();
     private final List<Position> supplierPossibleSpawnPoints = new ArrayList<>();
     private int longestPath;
+    private boolean productsOverflow = true;
+
+    private static final int MAX_NO_CLIENTS = 100;
+    private static final int MAX_NO_SUPPLIERS = 100;
+    private static final int MAX_NO_PRODUCTS = 10000;
+
     private final List<String> lastNames = Arrays.asList(
             "Smith",
             "Johnson",
@@ -361,7 +368,7 @@ public enum Storage {
         for (int i = 0; i < allShops.size(); i++) {
             for (int j = i + 1; j < allShops.size(); j++) {
                 List<String> currentPath = Pathfinder.findPath(allShops.get(i).getPosition(), allShops.get(j).getPosition(), DrawableType.Supplier);
-                if(currentPath == null) {
+                if (currentPath == null) {
                     continue;
                 }
                 if (currentPath.size() > longestPath) {
@@ -421,18 +428,44 @@ public enum Storage {
     }
 
     public void createClient() {
-        clients.add(new Client(randomPick(firstNames), randomPick(lastNames), randomPick(clientPossibleSpawnPoints), randomNumberGenerator(5, 7), randomNumberGenerator(3, 5)));
+        if (clients.size() < MAX_NO_CLIENTS) {
+            clients.add(new Client(randomPick(firstNames), randomPick(lastNames), randomPick(clientPossibleSpawnPoints), randomNumberGenerator(5, 7), randomNumberGenerator(3, 5)));
+        } else {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setHeaderText("Why would you do that");
+            alert.setContentText(String.format("Why would you need more than %d clients. Sorry but that's the limit", MAX_NO_CLIENTS));
+            alert.showAndWait();
+        }
     }
 
     public void createSupplier() {
-        List<Shop> shops = sample(wholesales, randomNumberGenerator(1, wholesales.size() - 1));
-        shops.addAll(sample(retailShops, randomNumberGenerator(1, retailShops.size() - 1)));
-        suppliers.add(new Supplier(randomPick(firstNames), randomPick(lastNames), randomPick(supplierPossibleSpawnPoints), randomNumberGenerator(5, 7), shops, randomPick(deliveryCompanyNames)));
+        if (suppliers.size() < MAX_NO_SUPPLIERS) {
+            List<Shop> shops = sample(wholesales, randomNumberGenerator(1, wholesales.size() - 1));
+            shops.addAll(sample(retailShops, randomNumberGenerator(1, retailShops.size() - 1)));
+            suppliers.add(new Supplier(randomPick(firstNames), randomPick(lastNames), randomPick(supplierPossibleSpawnPoints), randomNumberGenerator(5, 7), shops, randomPick(deliveryCompanyNames)));
+        } else {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setHeaderText("Why would you do that");
+            alert.setContentText(String.format("Why would you need more than %d suppliers. Sorry but that's the limit", MAX_NO_SUPPLIERS));
+            alert.showAndWait();
+        }
+
     }
 
     public Product createProduct(String from) {
         Product product = new Product(randomPick(productNames), randomPick(productCompanyName), LocalDate.now().plusWeeks(randomNumberGenerator(24, 60)), from);
-        products.add(product);
+        //adding up to 10_000 products to the list (program will go on but future products won't be loges)
+        if (products.size() < MAX_NO_PRODUCTS) {
+            products.add(product);
+        } else {
+            if (productsOverflow) {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setHeaderText("NO MORE");
+                alert.setContentText(String.format("No more products will we added to details view, that %d should be enough", MAX_NO_PRODUCTS));
+                alert.showAndWait();
+                productsOverflow = false;
+            }
+        }
         return product;
     }
 

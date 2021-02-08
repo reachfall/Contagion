@@ -15,6 +15,22 @@
                      <padding>
                         <Insets bottom="20.0" />
                      </padding>
+                     <children>
+                        <HBox>
+                           <children>
+                              <Button fx:id="pauseButton" mnemonicParsing="false" prefWidth="100.0" text="Pause">
+                                 <HBox.margin>
+                                    <Insets right="5.0" />
+                                 </HBox.margin>
+                              </Button>
+                              <Button fx:id="resumeButton" mnemonicParsing="false" prefWidth="100.0" text="Resume">
+                                 <HBox.margin>
+                                    <Insets left="5.0" />
+                                 </HBox.margin>
+                              </Button>
+                           </children>
+                        </HBox>
+                     </children>
                   </VBox>
                   <VBox alignment="CENTER" prefHeight="250.0">
                      <children>

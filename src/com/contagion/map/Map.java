@@ -5,6 +5,8 @@ import com.contagion.tiles.Drawable;
 import com.contagion.tiles.DrawableShop;
 import com.contagion.tiles.DrawableType;
 import com.contagion.tiles.Movable;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.layout.AnchorPane;
@@ -63,7 +65,7 @@ public class Map extends AnchorPane implements Runnable {
         prepareCanvases();
         drawLayers();
 
-        ScheduledExecution.getInstance().scheduleAtFixedRate(this, 0, 100, TimeUnit.MILLISECONDS);
+        ScheduledExecution.getInstance().scheduleAtFixedRate(this, 0, SpeedAndSpeedOnly.INSTANCE.getSpeed(), TimeUnit.MILLISECONDS);
     }
 
     public void readXML(String path) {
@@ -133,7 +135,7 @@ public class Map extends AnchorPane implements Runnable {
         this.getChildren().addAll(canvases);
 
         affine = new Affine();
-        affine.appendScale((double)mapCanvasSize / width, (double)mapCanvasSize / height);
+        affine.appendScale((double) mapCanvasSize / width, (double) mapCanvasSize / height);
     }
 
     public Color mapColor(int tileID) {
@@ -268,6 +270,8 @@ public class Map extends AnchorPane implements Runnable {
     @Override
     public void run() {
         if (PhaserExecution.getInstance().getUnarrivedParties() == 1) {
+            while (SpeedAndSpeedOnly.INSTANCE.getTimeControl().get()) {
+            }
             pandemicControl();
             renderEntities();
             highlightShop();

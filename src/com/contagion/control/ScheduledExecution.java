@@ -7,7 +7,7 @@ public class ScheduledExecution {
 
     public static ScheduledThreadPoolExecutor getInstance() {
         if (instance == null) {
-            instance = new ScheduledThreadPoolExecutor(500);
+            instance = new ScheduledThreadPoolExecutor(205);
             instance.setRemoveOnCancelPolicy(true);
         }
 
